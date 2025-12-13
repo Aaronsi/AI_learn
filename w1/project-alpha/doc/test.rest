@@ -1,0 +1,381 @@
+### Project Alpha API 测试文件
+### 使用 REST Client 扩展（VS Code）或 IntelliJ HTTP Client 运行
+
+@baseUrl = http://localhost:8000
+@contentType = application/json
+
+### ============================================
+### Health Check
+### ============================================
+
+### 健康检查
+GET {{baseUrl}}/health
+
+### ============================================
+### Tags API
+### ============================================
+
+### 1. 获取所有标签
+GET {{baseUrl}}/tags
+
+### 2. 搜索标签（按名称模糊匹配）
+GET {{baseUrl}}/tags?q=bug
+
+### 3. 创建标签
+POST {{baseUrl}}/tags
+Content-Type: {{contentType}}
+
+{
+  "name": "bug"
+}
+
+### 4. 创建标签（幂等性测试 - 相同名称）
+POST {{baseUrl}}/tags
+Content-Type: {{contentType}}
+
+{
+  "name": "feature"
+}
+
+### 5. 再次创建相同标签（应该返回已存在的标签）
+POST {{baseUrl}}/tags
+Content-Type: {{contentType}}
+
+{
+  "name": "feature"
+}
+
+### 6. 创建多个标签用于测试
+POST {{baseUrl}}/tags
+Content-Type: {{contentType}}
+
+{
+  "name": "urgent"
+}
+
+###
+POST {{baseUrl}}/tags
+Content-Type: {{contentType}}
+
+{
+  "name": "frontend"
+}
+
+###
+POST {{baseUrl}}/tags
+Content-Type: {{contentType}}
+
+{
+  "name": "backend"
+}
+
+### 7. 删除标签（需要替换 {tag_id} 为实际标签 ID）
+DELETE {{baseUrl}}/tags/{tag_id}
+
+### ============================================
+### Tickets API
+### ============================================
+
+### 1. 获取所有 tickets（默认分页）
+GET {{baseUrl}}/tickets
+
+### 2. 获取 tickets（带分页参数）
+GET {{baseUrl}}/tickets?limit=10&offset=0
+
+### 3. 按状态筛选 tickets（open）
+GET {{baseUrl}}/tickets?status=open
+
+### 4. 按状态筛选 tickets（done）
+GET {{baseUrl}}/tickets?status=done
+
+### 5. 按标题搜索 tickets
+GET {{baseUrl}}/tickets?q=修复
+
+### 6. 按标签筛选 tickets（单个标签）
+GET {{baseUrl}}/tickets?tags=bug
+
+### 7. 按多个标签筛选 tickets（AND 逻辑）
+GET {{baseUrl}}/tickets?tags=bug,urgent
+
+### 8. 组合筛选：状态 + 标签 + 搜索
+GET {{baseUrl}}/tickets?status=open&tags=bug&q=修复&limit=20&offset=0
+
+### 9. 创建 ticket（无标签）
+POST {{baseUrl}}/tickets
+Content-Type: {{contentType}}
+
+{
+  "title": "修复登录页面 bug",
+  "description": "用户无法正常登录，需要检查表单验证逻辑"
+}
+
+### 10. 创建 ticket（带标签）
+POST {{baseUrl}}/tickets
+Content-Type: {{contentType}}
+
+{
+  "title": "实现用户头像上传功能",
+  "description": "允许用户上传和更新个人头像",
+  "tags": ["feature", "frontend"]
+}
+
+### 11. 创建 ticket（多个标签）
+POST {{baseUrl}}/tickets
+Content-Type: {{contentType}}
+
+{
+  "title": "紧急修复支付接口问题",
+  "description": "支付接口返回 500 错误，需要立即修复",
+  "tags": ["bug", "urgent", "backend"]
+}
+
+### 12. 创建 ticket（标题长度测试 - 200字符）
+POST {{baseUrl}}/tickets
+Content-Type: {{contentType}}
+
+{
+  "title": "这是一个非常长的标题用来测试标题长度限制是否正常工作，应该能够接受最多200个字符的标题内容，超过这个长度应该返回验证错误信息",
+  "description": "测试长标题"
+}
+
+### 13. 创建 ticket（验证错误 - 空标题）
+POST {{baseUrl}}/tickets
+Content-Type: {{contentType}}
+
+{
+  "title": "",
+  "description": "这应该失败"
+}
+
+### 14. 创建 ticket（验证错误 - 标题过长）
+POST {{baseUrl}}/tickets
+Content-Type: {{contentType}}
+
+{
+  "title": "这是一个超过200字符限制的标题，用来测试API的验证功能是否正常工作。如果这个标题超过了200个字符的限制，API应该返回一个验证错误，提示用户标题长度不能超过200个字符。让我们看看这个测试是否能够正确地触发验证错误。",
+  "description": "测试标题长度验证"
+}
+
+### 15. 获取单个 ticket（需要替换 {ticket_id} 为实际 ticket ID）
+GET {{baseUrl}}/tickets/{ticket_id}
+
+### 16. 更新 ticket - 修改标题和描述
+PATCH {{baseUrl}}/tickets/{ticket_id}
+Content-Type: {{contentType}}
+
+{
+  "title": "修复登录页面 bug（已更新）",
+  "description": "已修复表单验证问题，现在可以正常登录了"
+}
+
+### 17. 更新 ticket - 修改状态为已完成
+PATCH {{baseUrl}}/tickets/{ticket_id}
+Content-Type: {{contentType}}
+
+{
+  "status": "done"
+}
+
+### 18. 更新 ticket - 修改状态为进行中
+PATCH {{baseUrl}}/tickets/{ticket_id}
+Content-Type: {{contentType}}
+
+{
+  "status": "open"
+}
+
+### 19. 更新 ticket - 添加标签
+PATCH {{baseUrl}}/tickets/{ticket_id}
+Content-Type: {{contentType}}
+
+{
+  "tags": ["bug", "urgent", "frontend"]
+}
+
+### 20. 更新 ticket - 移除所有标签
+PATCH {{baseUrl}}/tickets/{ticket_id}
+Content-Type: {{contentType}}
+
+{
+  "tags": []
+}
+
+### 21. 更新 ticket - 部分更新（只更新描述）
+PATCH {{baseUrl}}/tickets/{ticket_id}
+Content-Type: {{contentType}}
+
+{
+  "description": "更新后的描述内容"
+}
+
+### 22. 更新 ticket - 完整更新
+PATCH {{baseUrl}}/tickets/{ticket_id}
+Content-Type: {{contentType}}
+
+{
+  "title": "完整更新的标题",
+  "description": "完整更新的描述",
+  "status": "done",
+  "tags": ["feature", "backend"]
+}
+
+### 23. 删除 ticket（需要替换 {ticket_id} 为实际 ticket ID）
+DELETE {{baseUrl}}/tickets/{ticket_id}
+
+### ============================================
+### 错误场景测试
+### ============================================
+
+### 24. 获取不存在的 ticket（404 错误）
+GET {{baseUrl}}/tickets/00000000-0000-0000-0000-000000000000
+
+### 25. 更新不存在的 ticket（404 错误）
+PATCH {{baseUrl}}/tickets/00000000-0000-0000-0000-000000000000
+Content-Type: {{contentType}}
+
+{
+  "title": "不存在的 ticket"
+}
+
+### 26. 删除不存在的 ticket（404 错误）
+DELETE {{baseUrl}}/tickets/00000000-0000-0000-0000-000000000000
+
+### 27. 删除不存在的标签（404 错误）
+DELETE {{baseUrl}}/tags/00000000-0000-0000-0000-000000000000
+
+### 28. 创建标签 - 验证错误（空名称）
+POST {{baseUrl}}/tags
+Content-Type: {{contentType}}
+
+{
+  "name": ""
+}
+
+### 29. 创建标签 - 验证错误（名称过长）
+POST {{baseUrl}}/tags
+Content-Type: {{contentType}}
+
+{
+  "name": "这是一个超过50个字符限制的标签名称，用来测试API的验证功能"
+}
+
+### 30. 创建 ticket - 验证错误（无效的标签 ID）
+POST {{baseUrl}}/tickets
+Content-Type: {{contentType}}
+
+{
+  "title": "测试无效标签",
+  "tags": ["invalid-tag-id-12345"]
+}
+
+### ============================================
+### 工作流测试场景
+### ============================================
+
+### 场景 1: 完整的 ticket 生命周期
+### 步骤 1: 创建标签
+POST {{baseUrl}}/tags
+Content-Type: {{contentType}}
+
+{
+  "name": "workflow-test"
+}
+
+### 步骤 2: 创建 ticket（使用上面的标签）
+POST {{baseUrl}}/tickets
+Content-Type: {{contentType}}
+
+{
+  "title": "工作流测试 ticket",
+  "description": "这是一个完整的工作流测试",
+  "tags": ["workflow-test"]
+}
+
+### 步骤 3: 查看创建的 ticket（替换 {ticket_id}）
+GET {{baseUrl}}/tickets/{ticket_id}
+
+### 步骤 4: 更新 ticket 状态为已完成
+PATCH {{baseUrl}}/tickets/{ticket_id}
+Content-Type: {{contentType}}
+
+{
+  "status": "done"
+}
+
+### 步骤 5: 验证状态已更新
+GET {{baseUrl}}/tickets/{ticket_id}
+
+### 步骤 6: 删除 ticket
+DELETE {{baseUrl}}/tickets/{ticket_id}
+
+### 步骤 7: 删除标签
+DELETE {{baseUrl}}/tags/{tag_id}
+
+### ============================================
+### 性能测试场景
+### ============================================
+
+### 31. 测试分页 - 第一页
+GET {{baseUrl}}/tickets?limit=5&offset=0
+
+### 32. 测试分页 - 第二页
+GET {{baseUrl}}/tickets?limit=5&offset=5
+
+### 33. 测试分页 - 第三页
+GET {{baseUrl}}/tickets?limit=5&offset=10
+
+### 34. 测试最大 limit
+GET {{baseUrl}}/tickets?limit=100
+
+### 35. 测试超过最大 limit（应该返回错误）
+GET {{baseUrl}}/tickets?limit=101
+
+### 36. 测试负数的 offset（应该返回错误）
+GET {{baseUrl}}/tickets?offset=-1
+
+### ============================================
+### 边界情况测试
+### ============================================
+
+### 37. 创建 ticket - 最小有效数据
+POST {{baseUrl}}/tickets
+Content-Type: {{contentType}}
+
+{
+  "title": "A"
+}
+
+### 38. 创建 ticket - 最大长度标题（200字符）
+POST {{baseUrl}}/tickets
+Content-Type: {{contentType}}
+
+{
+  "title": "这是一个正好200个字符的标题用来测试边界情况，应该能够成功创建，不会触发任何验证错误，因为正好达到了最大长度限制，不会超过限制。"
+}
+
+### 39. 创建 ticket - 长描述
+POST {{baseUrl}}/tickets
+Content-Type: {{contentType}}
+
+{
+  "title": "长描述测试",
+  "description": "这是一个非常长的描述内容，用来测试系统是否能够正确处理长文本。描述字段没有长度限制，所以可以包含任意长度的文本内容。这个测试用例主要验证系统在处理长文本时的性能和稳定性。"
+}
+
+### 40. 创建 ticket - 特殊字符测试
+POST {{baseUrl}}/tickets
+Content-Type: {{contentType}}
+
+{
+  "title": "特殊字符测试：!@#$%^&*()_+-=[]{}|;':\",./<>?",
+  "description": "测试特殊字符：<script>alert('xss')</script> & <>&"
+}
+
+### 41. 创建 ticket - Unicode 字符测试
+POST {{baseUrl}}/tickets
+Content-Type: {{contentType}}
+
+{
+  "title": "Unicode 测试：中文、日本語、한국어、Русский、العربية",
+  "description": "测试多语言支持：中文、English、日本語、한국어"
+}
