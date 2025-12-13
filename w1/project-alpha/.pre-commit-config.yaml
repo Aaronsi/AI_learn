@@ -26,4 +26,3 @@ repos:
         pass_filenames: false
         files: ^frontend/.*\.(ts|tsx|js|jsx)$
         types: [file]
-
