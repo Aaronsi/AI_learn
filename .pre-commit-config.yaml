@@ -1,0 +1,21 @@
+repos:
+  # 通用代码检查
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  # 本地 hooks - 如果需要 Python/JS 格式化，可以后续添加
+  # - repo: local
+  #   hooks:
+  #     - id: black
+  #       name: black
+  #       entry: black
+  #       language: system
+  #       files: \.py$
+  #       args: [--line-length=88]

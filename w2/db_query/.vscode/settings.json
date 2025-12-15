@@ -1,0 +1,12 @@
+{
+  "python.defaultInterpreterPath": "D:\\develop\\AI_learn\\w2\\db_query\\backend\\.venv\\Scripts\\python.exe",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/backend"
+  ],
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.diagnosticMode": "workspace",
+  "python.languageServer": "Pylance",
+  "python.analysis.stubPath": "${workspaceFolder}/backend/.venv/Lib/site-packages"
+}
+
