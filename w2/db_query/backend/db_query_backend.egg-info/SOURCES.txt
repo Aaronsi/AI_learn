@@ -11,3 +11,8 @@ db_query_backend.egg-info/SOURCES.txt
 db_query_backend.egg-info/dependency_links.txt
 db_query_backend.egg-info/requires.txt
 db_query_backend.egg-info/top_level.txt
+tests/test_api.py
+tests/test_database.py
+tests/test_llm.py
+tests/test_metadata.py
+tests/test_sql_parser.py

@@ -53,3 +53,58 @@ POST /api/v1/dbs/{name}/query/natural
   "prompt":"查询用户表的所有信息"
 }
 '''
+
+# 测试
+运行后端和前端，根据@w2/db_query/test.rest 用curl测试后端已实现的路由；然后用playwright 代开前端进行测试，任何测试问题，think ultra hard and fix
+
+## 优化UI
+
+## 前端风格
+使用 style.md 中的风格，学习 ./site 中 token 的定义，优化整体的 UI和UX。
+
+左边增加数据库删除操作；
+点击某个数据库名称前面的图标，要显示数据库下面的表，点击表前面的图标要显示表下面的列信息；
+查询结果框要放在SQL编辑器下面；
+
+1.删除数据库操作不管用；
+2.点击某个数据库名称前面的图标，要显示数据库下面的表，点击表前面的图标要显示表下面的列信息；增加后端接口来实现使用功能；
+
+1.添加数据库弹出框，不需要上一步和下一步按钮；只需要“取消”，“测试连接”和“完成”按钮；
+2.点击“取消”按钮，直接关闭添加数据库弹出框；
+3.点击“测试连接”按钮，测试数据库是否能够连接通过；并提示连接结果信息；
+4.点击“完成”按钮，先判断数据库信息是否填写完整；再判断数据库链接是否正常；如果数据库信息填写完整并且数据库链接正常，则关闭添加数据库弹出框；并将添加成功的数据库添加到左边数据库列表中。
+
+1.数据库名字要放在数据库图标后面，放在一行；
+2.自然语言查询需要访问deepseek模型api接口，生成对应的sql，并放入sql编辑器的sql输入框中。
+
+1.数据库名字要放在数据库图标后面，放在一行；
+2.点击生成sql按钮，报错，提示“生成sql失败”
+
+表名前面需要增加表的图标；
+
+## review
+/speckit.analyze 仔细 review w2/db_query 代码，删除不用的代码，添加更多 unit test，以及寻找 opportunity
+do all of these
+
+## week 2 ：homework
+
+1. 完善文档。  /speckit.implement phase 4
+2. 已经完成 phase 1-3 的功能，但是还有类似 export csv/json 的功能没完成，使用 speckit 来添加这个功能。
+
+
+
+
+
+## --------------------------------项目网站维护---------------------------------------------------------
+## 撰写介绍，更新到项目网站中
+/clear
+
+project 2 已完成，截图见 @site/public/projects/project-2/preview.jpg 请更新./sites 下面的 project页面，并且更新 project 2 页面，根据 @specs/001-db-query-tool/spec.md 和 @specs/001-db-query-tool/plan.md 撰写详细介绍。
+
+## 记录最终界面样子
+使用playwright 打开 todo  网址，选择 todo db，然后输入 sql：
+todo
+点击execute，然后截图放在  ./site/public/project-2/preview.png
+
+## 网站代码提交
+submit pr
