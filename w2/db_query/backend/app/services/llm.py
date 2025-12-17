@@ -112,5 +112,9 @@ Generate a PostgreSQL SELECT query for the above request. Return only the SQL qu
         explanation = None
         return sql, explanation
     except Exception as e:
-        raise ValueError(f"Failed to generate SQL using LLM: {str(e)}")
+        error_str = str(e)
+        # Preserve the original error for better error handling
+        if "402" in error_str or "Insufficient Balance" in error_str or "balance" in error_str.lower():
+            raise ValueError(f"DeepSeek API 余额不足: {error_str}")
+        raise ValueError(f"Failed to generate SQL using LLM: {error_str}")
 

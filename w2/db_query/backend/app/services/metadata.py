@@ -92,6 +92,10 @@ async def refresh_metadata(
     session: AsyncSession, connection_name: str
 ) -> DatabaseMetadata:
     """Refresh metadata for a connection."""
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
     db_conn_result = await session.execute(
         select(DatabaseConnection).where(
             DatabaseConnection.name == connection_name
@@ -101,11 +105,68 @@ async def refresh_metadata(
     if db_conn is None:
         raise ValueError(f"Connection {connection_name} not found")
 
-    if db_conn.database_type.lower() == "postgresql":
-        raw_metadata = await fetch_postgres_metadata(db_conn.url)
-        # Convert to structured JSON using LLM
-        structured_metadata = await convert_metadata_to_json(raw_metadata)
-        return await save_metadata(session, connection_name, structured_metadata)
-    else:
-        raise ValueError(f"Unsupported database type: {db_conn.database_type}")
+    try:
+        if db_conn.database_type.lower() == "postgresql":
+            logger.info(f"Fetching metadata for {connection_name}")
+            raw_metadata = await fetch_postgres_metadata(db_conn.url)
+            logger.info(f"Fetched {len(raw_metadata)} tables/views")
+            
+            # Try to convert to structured JSON using LLM
+            # If LLM conversion fails (e.g., insufficient balance), use raw metadata as fallback
+            try:
+                logger.info("Converting metadata using LLM")
+                structured_metadata = await convert_metadata_to_json(raw_metadata)
+                logger.info("Metadata conversion successful")
+            except Exception as llm_error:
+                error_str = str(llm_error)
+                # Check if it's a balance/API error
+                if "402" in error_str or "Insufficient Balance" in error_str or "balance" in error_str.lower():
+                    logger.warning(f"LLM conversion failed due to API balance issue, using raw metadata format: {error_str}")
+                    # Use raw metadata in a compatible format
+                    structured_metadata = {
+                        "tables": [
+                            {
+                                "name": f"{item.get('schema', 'public')}.{item.get('name', '')}",
+                                "type": item.get("type", "table"),
+                                "columns": [
+                                    {
+                                        "name": col.get("column_name", ""),
+                                        "type": col.get("data_type", ""),
+                                        "nullable": col.get("is_nullable", "NO") == "YES",
+                                        "default": col.get("column_default"),
+                                    }
+                                    for col in (item.get("columns") or [])
+                                ],
+                            }
+                            for item in raw_metadata
+                        ]
+                    }
+                else:
+                    # For other errors, still try to use raw metadata format
+                    logger.warning(f"LLM conversion failed, using raw metadata format: {error_str}")
+                    structured_metadata = {
+                        "tables": [
+                            {
+                                "name": f"{item.get('schema', 'public')}.{item.get('name', '')}",
+                                "type": item.get("type", "table"),
+                                "columns": [
+                                    {
+                                        "name": col.get("column_name", ""),
+                                        "type": col.get("data_type", ""),
+                                        "nullable": col.get("is_nullable", "NO") == "YES",
+                                        "default": col.get("column_default"),
+                                    }
+                                    for col in (item.get("columns") or [])
+                                ],
+                            }
+                            for item in raw_metadata
+                        ]
+                    }
+            
+            return await save_metadata(session, connection_name, structured_metadata)
+        else:
+            raise ValueError(f"Unsupported database type: {db_conn.database_type}")
+    except Exception as e:
+        logger.error(f"Error refreshing metadata for {connection_name}: {str(e)}", exc_info=True)
+        raise
 

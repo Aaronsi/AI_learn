@@ -30,8 +30,9 @@ async def test_connection(url: str, database_type: str) -> bool:
             await conn.close()
             return True
         else:
-            # Add support for other database types as needed
-            raise ValueError(f"Unsupported database type: {database_type}")
+            # For unsupported types, return False instead of raising
+            # This allows graceful handling in save_connection
+            return False
     except Exception:
         return False
 
@@ -52,10 +53,13 @@ async def save_connection(
     """Save or update a database connection."""
     # Detect database type
     database_type = detect_database_type(url)
+    
+    if database_type == "unknown":
+        raise ValueError(f"Unsupported database URL scheme: {urlparse(url).scheme}")
 
     # Test connection first
     if not await test_connection(url, database_type):
-        raise ValueError("Failed to connect to database")
+        raise ValueError("Failed to connect to database. Please check your connection settings.")
 
     # Check if connection exists
     existing = await get_connection(session, name)

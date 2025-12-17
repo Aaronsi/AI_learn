@@ -1,28 +1,41 @@
 PORT ?= 8000
 BACKEND_DIR = backend
+FRONTEND_DIR = frontend
 
-.PHONY: help install dev start stop test clean format lint check
+.PHONY: help install dev start stop test clean format lint check frontend-install frontend-dev
 
 help:
 	@echo "DB Query Tool - Available commands:"
 	@echo ""
-	@echo "  make install     - Install all dependencies"
-	@echo "  make dev         - Start development server (reload enabled)"
-	@echo "  make start      - Start production server"
-	@echo "  make stop        - Stop server (if running)"
-	@echo "  make test        - Run tests"
-	@echo "  make format      - Format code with black"
-	@echo "  make lint        - Lint code with ruff"
-	@echo "  make check       - Run format and lint checks"
-	@echo "  make clean       - Clean cache and temporary files"
+	@echo "  make install          - Install all dependencies (backend + frontend)"
+	@echo "  make dev              - Start backend development server (reload enabled)"
+	@echo "  make start            - Start backend production server"
+	@echo "  make frontend-install - Install frontend dependencies"
+	@echo "  make frontend-dev     - Start frontend development server"
+	@echo "  make stop             - Stop server (if running)"
+	@echo "  make test             - Run tests"
+	@echo "  make format           - Format code with black"
+	@echo "  make lint             - Lint code with ruff"
+	@echo "  make check            - Run format and lint checks"
+	@echo "  make clean            - Clean cache and temporary files"
 	@echo ""
 	@echo "Environment variables:"
-	@echo "  PORT             - Server port (default: $(PORT))"
+	@echo "  PORT                  - Server port (default: $(PORT))"
 
 # Install dependencies
-install:
-	@echo "Installing dependencies..."
+install: frontend-install
+	@echo "Installing backend dependencies..."
 	cd $(BACKEND_DIR) && uv sync
+
+# Install frontend dependencies
+frontend-install:
+	@echo "Installing frontend dependencies..."
+	cd $(FRONTEND_DIR) && npm install
+
+# Start frontend development server
+frontend-dev:
+	@echo "Starting frontend development server..."
+	cd $(FRONTEND_DIR) && npm run dev
 
 # Development server with auto-reload
 dev:
