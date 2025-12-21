@@ -67,18 +67,25 @@ Return only the JSON, no additional text."""
 
 
 async def generate_sql_from_natural_language(
-    prompt: str, metadata: dict[str, Any]
+    prompt: str, metadata: dict[str, Any], database_type: str = "postgresql"
 ) -> tuple[str, str | None]:
     """Generate SQL from natural language using LLM."""
     # Format metadata for context
     metadata_text = json.dumps(metadata, indent=2, ensure_ascii=False)
 
-    system_prompt = """You are a SQL query generator. You generate PostgreSQL SELECT queries based on natural language descriptions.
+    # Map database type to SQL dialect name
+    db_name_map = {
+        "postgresql": "PostgreSQL",
+        "mysql": "MySQL",
+    }
+    db_name = db_name_map.get(database_type.lower(), "PostgreSQL")
+    
+    system_prompt = f"""You are a SQL query generator. You generate {db_name} SELECT queries based on natural language descriptions.
 
 Rules:
 1. Only generate SELECT statements
 2. Do not include LIMIT clauses (they will be added automatically)
-3. Use proper PostgreSQL syntax
+3. Use proper {db_name} syntax
 4. Reference tables and columns from the provided schema
 5. Return only the SQL query, no explanations unless asked"""
 
@@ -87,7 +94,7 @@ Rules:
 
 User Query: {prompt}
 
-Generate a PostgreSQL SELECT query for the above request. Return only the SQL query."""
+Generate a {db_name} SELECT query for the above request. Return only the SQL query."""
 
     try:
         response = await client.chat.completions.create(

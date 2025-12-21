@@ -2,6 +2,7 @@
 from typing import Any
 from urllib.parse import urlparse
 
+import aiomysql
 import asyncpg
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +29,26 @@ async def test_connection(url: str, database_type: str) -> bool:
             # Parse connection string and test
             conn = await asyncpg.connect(url)
             await conn.close()
+            return True
+        elif database_type.lower() == "mysql":
+            # Parse URL to extract connection parameters
+            parsed = urlparse(url)
+            host = parsed.hostname or "localhost"
+            port = parsed.port or 3306
+            user = parsed.username or "root"
+            password = parsed.password or ""
+            database = parsed.path.lstrip("/") if parsed.path else None
+            
+            conn = await aiomysql.connect(
+                host=host,
+                port=port,
+                user=user,
+                password=password,
+                db=database,
+                charset="utf8mb4",
+            )
+            conn.close()
+            await conn.ensure_closed()
             return True
         else:
             # For unsupported types, return False instead of raising
@@ -118,6 +139,44 @@ async def execute_query(
             }
         finally:
             await conn.close()
+    elif database_type.lower() == "mysql":
+        # Parse URL to extract connection parameters
+        parsed = urlparse(url)
+        host = parsed.hostname or "localhost"
+        port = parsed.port or 3306
+        user = parsed.username or "root"
+        password = parsed.password or ""
+        database = parsed.path.lstrip("/") if parsed.path else None
+        
+        conn = await aiomysql.connect(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            db=database,
+            charset="utf8mb4",
+        )
+        try:
+            cur = await conn.cursor(aiomysql.DictCursor)
+            await cur.execute(sql)
+            rows = await cur.fetchall()
+            await cur.close()
+            
+            if not rows:
+                return {"columns": [], "rows": [], "row_count": 0}
+            
+            # Extract column names from first row
+            columns = list(rows[0].keys())
+            rows_data = [list(row.values()) for row in rows]
+            
+            return {
+                "columns": columns,
+                "rows": rows_data,
+                "row_count": len(rows_data),
+            }
+        finally:
+            conn.close()
+            await conn.ensure_closed()
     else:
         raise ValueError(f"Unsupported database type: {database_type}")
 

@@ -3,11 +3,18 @@ import sqlglot
 from sqlglot import exp
 
 
-def validate_sql(sql: str) -> tuple[bool, str | None]:
+def validate_sql(sql: str, database_type: str = "postgresql") -> tuple[bool, str | None]:
     """Validate SQL and ensure it only contains SELECT statements."""
     try:
+        # Map database type to sqlglot dialect
+        dialect_map = {
+            "postgresql": "postgres",
+            "mysql": "mysql",
+        }
+        dialect = dialect_map.get(database_type.lower(), "postgres")
+        
         # Parse SQL
-        parsed = sqlglot.parse_one(sql, dialect="postgres")
+        parsed = sqlglot.parse_one(sql, dialect=dialect)
         if parsed is None:
             return False, "Failed to parse SQL"
 
@@ -27,10 +34,17 @@ def validate_sql(sql: str) -> tuple[bool, str | None]:
         return False, f"Error validating SQL: {str(e)}"
 
 
-def add_limit_if_needed(sql: str, default_limit: int = 1000) -> str:
+def add_limit_if_needed(sql: str, database_type: str = "postgresql", default_limit: int = 1000) -> str:
     """Add LIMIT clause if not present."""
     try:
-        parsed = sqlglot.parse_one(sql, dialect="postgres")
+        # Map database type to sqlglot dialect
+        dialect_map = {
+            "postgresql": "postgres",
+            "mysql": "mysql",
+        }
+        dialect = dialect_map.get(database_type.lower(), "postgres")
+        
+        parsed = sqlglot.parse_one(sql, dialect=dialect)
         if parsed is None:
             return sql
 
@@ -40,7 +54,7 @@ def add_limit_if_needed(sql: str, default_limit: int = 1000) -> str:
 
         # Add LIMIT clause
         parsed.set("limit", exp.Limit(expression=exp.Literal.number(default_limit)))
-        return parsed.sql(dialect="postgres")
+        return parsed.sql(dialect=dialect)
     except Exception:
         # If parsing fails, try simple string append (fallback)
         sql_upper = sql.upper().strip()

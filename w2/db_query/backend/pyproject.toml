@@ -10,6 +10,7 @@ dependencies = [
     "SQLAlchemy[asyncio]>=2.0",
     "aiosqlite>=0.19",
     "asyncpg>=0.29",
+    "aiomysql>=0.2",
     "pydantic>=2.7",
     "pydantic-settings>=2.0",
     "sqlglot[rs]>=24.0",
