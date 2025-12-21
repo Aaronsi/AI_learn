@@ -1,7 +1,9 @@
 """Metadata extraction and management services."""
 import json
 from typing import Any
+from urllib.parse import urlparse
 
+import aiomysql
 import asyncpg
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,6 +54,85 @@ async def fetch_postgres_metadata(url: str) -> list[dict[str, Any]]:
         return metadata
     finally:
         await conn.close()
+
+
+async def fetch_mysql_metadata(url: str) -> list[dict[str, Any]]:
+    """Fetch metadata from MySQL database."""
+    # Parse URL to extract connection parameters
+    parsed = urlparse(url)
+    host = parsed.hostname or "localhost"
+    port = parsed.port or 3306
+    user = parsed.username or "root"
+    password = parsed.password or ""
+    database = parsed.path.lstrip("/") if parsed.path else None
+    
+    conn = await aiomysql.connect(
+        host=host,
+        port=port,
+        user=user,
+        password=password,
+        db=database,
+        charset="utf8mb4",
+    )
+    try:
+        cur = await conn.cursor(aiomysql.DictCursor)
+        
+        # Query for tables and views
+        # MySQL uses information_schema similar to PostgreSQL
+        query = """
+        SELECT 
+            t.table_schema,
+            t.table_name,
+            t.table_type
+        FROM information_schema.tables t
+        WHERE t.table_schema NOT IN ('information_schema', 'performance_schema', 'mysql', 'sys')
+        ORDER BY t.table_schema, t.table_name;
+        """
+        
+        await cur.execute(query)
+        rows = await cur.fetchall()
+        
+        metadata = []
+        for row in rows:
+            # Fetch columns separately for each table
+            columns_query = """
+            SELECT 
+                column_name,
+                data_type,
+                is_nullable,
+                column_default,
+                ordinal_position
+            FROM information_schema.columns
+            WHERE table_schema = %s AND table_name = %s
+            ORDER BY ordinal_position;
+            """
+            await cur.execute(columns_query, (row["table_schema"], row["table_name"]))
+            column_rows = await cur.fetchall()
+            
+            columns = [
+                {
+                    "column_name": col["column_name"],
+                    "data_type": col["data_type"],
+                    "is_nullable": col["is_nullable"],
+                    "column_default": col["column_default"],
+                }
+                for col in column_rows
+            ]
+            
+            metadata.append(
+                {
+                    "schema": row["table_schema"],
+                    "name": row["table_name"],
+                    "type": "table" if row["table_type"] == "BASE TABLE" else "view",
+                    "columns": columns,
+                }
+            )
+        
+        await cur.close()
+        return metadata
+    finally:
+        conn.close()
+        await conn.ensure_closed()
 
 
 async def get_metadata(
@@ -106,66 +187,71 @@ async def refresh_metadata(
         raise ValueError(f"Connection {connection_name} not found")
 
     try:
+        raw_metadata = None
         if db_conn.database_type.lower() == "postgresql":
-            logger.info(f"Fetching metadata for {connection_name}")
+            logger.info(f"Fetching PostgreSQL metadata for {connection_name}")
             raw_metadata = await fetch_postgres_metadata(db_conn.url)
-            logger.info(f"Fetched {len(raw_metadata)} tables/views")
-            
-            # Try to convert to structured JSON using LLM
-            # If LLM conversion fails (e.g., insufficient balance), use raw metadata as fallback
-            try:
-                logger.info("Converting metadata using LLM")
-                structured_metadata = await convert_metadata_to_json(raw_metadata)
-                logger.info("Metadata conversion successful")
-            except Exception as llm_error:
-                error_str = str(llm_error)
-                # Check if it's a balance/API error
-                if "402" in error_str or "Insufficient Balance" in error_str or "balance" in error_str.lower():
-                    logger.warning(f"LLM conversion failed due to API balance issue, using raw metadata format: {error_str}")
-                    # Use raw metadata in a compatible format
-                    structured_metadata = {
-                        "tables": [
-                            {
-                                "name": f"{item.get('schema', 'public')}.{item.get('name', '')}",
-                                "type": item.get("type", "table"),
-                                "columns": [
-                                    {
-                                        "name": col.get("column_name", ""),
-                                        "type": col.get("data_type", ""),
-                                        "nullable": col.get("is_nullable", "NO") == "YES",
-                                        "default": col.get("column_default"),
-                                    }
-                                    for col in (item.get("columns") or [])
-                                ],
-                            }
-                            for item in raw_metadata
-                        ]
-                    }
-                else:
-                    # For other errors, still try to use raw metadata format
-                    logger.warning(f"LLM conversion failed, using raw metadata format: {error_str}")
-                    structured_metadata = {
-                        "tables": [
-                            {
-                                "name": f"{item.get('schema', 'public')}.{item.get('name', '')}",
-                                "type": item.get("type", "table"),
-                                "columns": [
-                                    {
-                                        "name": col.get("column_name", ""),
-                                        "type": col.get("data_type", ""),
-                                        "nullable": col.get("is_nullable", "NO") == "YES",
-                                        "default": col.get("column_default"),
-                                    }
-                                    for col in (item.get("columns") or [])
-                                ],
-                            }
-                            for item in raw_metadata
-                        ]
-                    }
-            
-            return await save_metadata(session, connection_name, structured_metadata)
+        elif db_conn.database_type.lower() == "mysql":
+            logger.info(f"Fetching MySQL metadata for {connection_name}")
+            raw_metadata = await fetch_mysql_metadata(db_conn.url)
         else:
             raise ValueError(f"Unsupported database type: {db_conn.database_type}")
+        
+        logger.info(f"Fetched {len(raw_metadata)} tables/views")
+        
+        # Try to convert to structured JSON using LLM
+        # If LLM conversion fails (e.g., insufficient balance), use raw metadata as fallback
+        try:
+            logger.info("Converting metadata using LLM")
+            structured_metadata = await convert_metadata_to_json(raw_metadata)
+            logger.info("Metadata conversion successful")
+        except Exception as llm_error:
+            error_str = str(llm_error)
+            # Check if it's a balance/API error
+            if "402" in error_str or "Insufficient Balance" in error_str or "balance" in error_str.lower():
+                logger.warning(f"LLM conversion failed due to API balance issue, using raw metadata format: {error_str}")
+                # Use raw metadata in a compatible format
+                structured_metadata = {
+                    "tables": [
+                        {
+                            "name": f"{item.get('schema', 'public')}.{item.get('name', '')}",
+                            "type": item.get("type", "table"),
+                            "columns": [
+                                {
+                                    "name": col.get("column_name", ""),
+                                    "type": col.get("data_type", ""),
+                                    "nullable": col.get("is_nullable", "NO") == "YES",
+                                    "default": col.get("column_default"),
+                                }
+                                for col in (item.get("columns") or [])
+                            ],
+                        }
+                        for item in raw_metadata
+                    ]
+                }
+            else:
+                # For other errors, still try to use raw metadata format
+                logger.warning(f"LLM conversion failed, using raw metadata format: {error_str}")
+                structured_metadata = {
+                    "tables": [
+                        {
+                            "name": f"{item.get('schema', 'public')}.{item.get('name', '')}",
+                            "type": item.get("type", "table"),
+                            "columns": [
+                                {
+                                    "name": col.get("column_name", ""),
+                                    "type": col.get("data_type", ""),
+                                    "nullable": col.get("is_nullable", "NO") == "YES",
+                                    "default": col.get("column_default"),
+                                }
+                                for col in (item.get("columns") or [])
+                            ],
+                        }
+                        for item in raw_metadata
+                    ]
+                }
+        
+        return await save_metadata(session, connection_name, structured_metadata)
     except Exception as e:
         logger.error(f"Error refreshing metadata for {connection_name}: {str(e)}", exc_info=True)
         raise

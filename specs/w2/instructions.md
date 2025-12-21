@@ -108,3 +108,22 @@ todo
 
 ## 网站代码提交
 submit pr
+
+
+
+### 切换到claude code
+仔细阅读 ./w2/db_query 下面的代码，然后运行后端和前端，根据 @w2/db_query/fixtures/test.rest 用curl 测试后端已实现的路由；然后用 playwright代开前端进行测试，任何测试问题， think ultra hard and fix.
+
+
+## 添加MySQL db 支持
+参考 ./w2/db_query/backend 中的PostgreSQL 实现，实现MySQL 的 metadata 提取和查询支持，同时自然语言生成 sql 也支持MySQL。目前我本地有一个 chapter1 数据库，数据库链接为mysql://root:root@localhost:3306/chapter1。 
+
+构建一个相对复杂的mysql 数据库 interview_db,记录公司招聘面试安排面试结果等相关的信息，并添加足够丰富且真实的 seed data。
+
+## 测试 MySQL db支持
+目前mysql已经得到支持，在 ./w2/db_query/fixtures/test.rest 中添加 MySQL db 支持的测试用例，然后运行测试。如果后端测试 ok， 那么打开后端和前端，使用playwright 测试前端，确保 MySQL db 的基本功能：
+
+- 添加 新的数据库 chapter1（url为mysql://root:root@localhost:3306/chapter1）
+- 生成查询 chapter1，并显示结果
+- 自然语言生成 MySQL sql，查询  chapter1, 并显示结果
+

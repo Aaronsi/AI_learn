@@ -20,6 +20,7 @@ from ..schemas import (
 )
 from ..services.database import delete_connection, execute_query, get_connection, list_connections, save_connection
 from ..services.metadata import (
+    fetch_mysql_metadata,
     fetch_postgres_metadata,
     get_metadata as get_metadata_service,
     refresh_metadata,
@@ -223,7 +224,7 @@ async def query_db(
         )
 
     # Validate SQL
-    is_valid, error_message = validate_sql(request.sql)
+    is_valid, error_message = validate_sql(request.sql, db_conn.database_type)
     if not is_valid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -231,7 +232,7 @@ async def query_db(
         )
 
     # Add LIMIT if needed
-    sql_with_limit = add_limit_if_needed(request.sql)
+    sql_with_limit = add_limit_if_needed(request.sql, db_conn.database_type)
 
     try:
         # Execute query
@@ -296,7 +297,7 @@ async def natural_language_query(
         
         try:
             sql, explanation = await generate_sql_from_natural_language(
-                request.prompt, metadata_dict
+                request.prompt, metadata_dict, db_conn.database_type
             )
         except ValueError as llm_error:
             error_str = str(llm_error)
@@ -313,7 +314,7 @@ async def natural_language_query(
                 )
 
         # Validate generated SQL
-        is_valid, error_message = validate_sql(sql)
+        is_valid, error_message = validate_sql(sql, db_conn.database_type)
         if not is_valid:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -321,7 +322,7 @@ async def natural_language_query(
             )
 
         # Add LIMIT if needed
-        sql_with_limit = add_limit_if_needed(sql)
+        sql_with_limit = add_limit_if_needed(sql, db_conn.database_type)
 
         # Execute query
         result = await execute_query(db_conn.url, db_conn.database_type, sql_with_limit)
@@ -362,37 +363,40 @@ async def get_db_tables(
         if db_conn.database_type.lower() == "postgresql":
             # Fetch tables directly from database
             raw_metadata = await fetch_postgres_metadata(db_conn.url)
-            
-            # Filter by schema if provided
-            if schema:
-                raw_metadata = [t for t in raw_metadata if t.get("schema") == schema]
-            
-            # Group by schema
-            schema_map: dict[str, list[dict[str, Any]]] = {}
-            for table in raw_metadata:
-                table_schema = table.get("schema", "public")
-                if table_schema not in schema_map:
-                    schema_map[table_schema] = []
-                schema_map[table_schema].append({
-                    "name": table["name"],
-                    "type": table["type"],
-                    "schema": table_schema,
-                })
-            
-            return {
-                "schemas": [
-                    {
-                        "name": schema_name,
-                        "tables": tables,
-                    }
-                    for schema_name, tables in schema_map.items()
-                ]
-            }
+        elif db_conn.database_type.lower() == "mysql":
+            # Fetch tables directly from database
+            raw_metadata = await fetch_mysql_metadata(db_conn.url)
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={"error": {"code": "unsupported_database", "message": f"Unsupported database type: {db_conn.database_type}", "details": None}},
             )
+        
+        # Filter by schema if provided
+        if schema:
+            raw_metadata = [t for t in raw_metadata if t.get("schema") == schema]
+        
+        # Group by schema
+        schema_map: dict[str, list[dict[str, Any]]] = {}
+        for table in raw_metadata:
+            table_schema = table.get("schema", "public" if db_conn.database_type.lower() == "postgresql" else "")
+            if table_schema not in schema_map:
+                schema_map[table_schema] = []
+            schema_map[table_schema].append({
+                "name": table["name"],
+                "type": table["type"],
+                "schema": table_schema,
+            })
+        
+        return {
+            "schemas": [
+                {
+                    "name": schema_name,
+                    "tables": tables,
+                }
+                for schema_name, tables in schema_map.items()
+            ]
+        }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -456,6 +460,61 @@ async def get_table_columns(
                 }
             finally:
                 await conn.close()
+        elif db_conn.database_type.lower() == "mysql":
+            import aiomysql
+            from urllib.parse import urlparse
+            
+            # Parse URL to extract connection parameters
+            parsed = urlparse(db_conn.url)
+            host = parsed.hostname or "localhost"
+            port = parsed.port or 3306
+            user = parsed.username or "root"
+            password = parsed.password or ""
+            database = parsed.path.lstrip("/") if parsed.path else None
+            
+            conn = await aiomysql.connect(
+                host=host,
+                port=port,
+                user=user,
+                password=password,
+                db=database,
+                charset="utf8mb4",
+            )
+            try:
+                cur = await conn.cursor(aiomysql.DictCursor)
+                query = """
+                SELECT 
+                    column_name,
+                    data_type,
+                    is_nullable,
+                    column_default,
+                    ordinal_position
+                FROM information_schema.columns
+                WHERE table_schema = %s AND table_name = %s
+                ORDER BY ordinal_position;
+                """
+                await cur.execute(query, (schema, table))
+                rows = await cur.fetchall()
+                await cur.close()
+                
+                columns = []
+                for row in rows:
+                    columns.append({
+                        "name": row["column_name"],
+                        "type": row["data_type"],
+                        "nullable": row["is_nullable"] == "YES",
+                        "default": row["column_default"],
+                        "position": row["ordinal_position"],
+                    })
+                
+                return {
+                    "schema": schema,
+                    "table": table,
+                    "columns": columns,
+                }
+            finally:
+                conn.close()
+                await conn.ensure_closed()
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
