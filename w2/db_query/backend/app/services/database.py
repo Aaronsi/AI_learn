@@ -1,59 +1,62 @@
-"""Database connection and query services."""
+"""Database connection and query services.
+
+This module has been refactored to use the DatabaseAdapter pattern,
+following the Dependency Inversion Principle - it depends on abstractions
+(DatabaseAdapter) rather than concrete implementations.
+"""
+
 from typing import Any
 from urllib.parse import urlparse
 
-import aiomysql
-import asyncpg
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..adapters import ConnectionInfo, DatabaseAdapter, get_adapter_factory
 from ..models import DatabaseConnection
 
 
 def detect_database_type(url: str) -> str:
-    """Detect database type from URL."""
+    """Detect database type from URL.
+    
+    Args:
+        url: Database connection URL
+        
+    Returns:
+        Database type identifier (e.g., 'postgresql', 'mysql')
+    """
     parsed = urlparse(url)
     scheme = parsed.scheme.lower()
-    if scheme in ("postgresql", "postgres"):
-        return "postgresql"
-    elif scheme in ("mysql", "mariadb"):
-        return "mysql"
-    else:
-        return "unknown"
+    
+    # Map URL schemes to database types
+    scheme_map = {
+        "postgresql": "postgresql",
+        "postgres": "postgresql",
+        "mysql": "mysql",
+        "mariadb": "mysql",
+    }
+    
+    return scheme_map.get(scheme, "unknown")
 
 
 async def test_connection(url: str, database_type: str) -> bool:
-    """Test database connection."""
+    """Test database connection using appropriate adapter.
+    
+    Args:
+        url: Database connection URL
+        database_type: Database type identifier
+        
+    Returns:
+        True if connection successful, False otherwise
+    """
     try:
-        if database_type.lower() == "postgresql":
-            # Parse connection string and test
-            conn = await asyncpg.connect(url)
-            await conn.close()
-            return True
-        elif database_type.lower() == "mysql":
-            # Parse URL to extract connection parameters
-            parsed = urlparse(url)
-            host = parsed.hostname or "localhost"
-            port = parsed.port or 3306
-            user = parsed.username or "root"
-            password = parsed.password or ""
-            database = parsed.path.lstrip("/") if parsed.path else None
-            
-            conn = await aiomysql.connect(
-                host=host,
-                port=port,
-                user=user,
-                password=password,
-                db=database,
-                charset="utf8mb4",
-            )
-            conn.close()
-            await conn.ensure_closed()
-            return True
-        else:
-            # For unsupported types, return False instead of raising
-            # This allows graceful handling in save_connection
+        factory = get_adapter_factory()
+        if not factory.is_supported(database_type):
             return False
+        
+        connection_info = ConnectionInfo.from_url(url)
+        adapter = factory.create(database_type, connection_info)
+        
+        return await adapter.test_connection(connection_info)
     except Exception:
         return False
 
@@ -61,7 +64,15 @@ async def test_connection(url: str, database_type: str) -> bool:
 async def get_connection(
     session: AsyncSession, name: str
 ) -> DatabaseConnection | None:
-    """Get a database connection by name."""
+    """Get a database connection by name.
+    
+    Args:
+        session: Database session
+        name: Connection name
+        
+    Returns:
+        DatabaseConnection instance or None if not found
+    """
     result = await session.execute(
         select(DatabaseConnection).where(DatabaseConnection.name == name)
     )
@@ -71,17 +82,30 @@ async def get_connection(
 async def save_connection(
     session: AsyncSession, name: str, url: str
 ) -> DatabaseConnection:
-    """Save or update a database connection."""
+    """Save or update a database connection.
+    
+    Args:
+        session: Database session
+        name: Connection name
+        url: Database connection URL
+        
+    Returns:
+        DatabaseConnection instance
+        
+    Raises:
+        ValueError: If database type is unsupported or connection fails
+    """
     # Detect database type
     database_type = detect_database_type(url)
     
-    if database_type == "unknown":
+    factory = get_adapter_factory()
+    if not factory.is_supported(database_type):
         raise ValueError(f"Unsupported database URL scheme: {urlparse(url).scheme}")
-
+    
     # Test connection first
     if not await test_connection(url, database_type):
         raise ValueError("Failed to connect to database. Please check your connection settings.")
-
+    
     # Check if connection exists
     existing = await get_connection(session, name)
     if existing:
@@ -103,17 +127,32 @@ async def save_connection(
 
 
 async def list_connections(session: AsyncSession) -> list[DatabaseConnection]:
-    """List all database connections."""
+    """List all database connections.
+    
+    Args:
+        session: Database session
+        
+    Returns:
+        List of DatabaseConnection instances
+    """
     result = await session.execute(select(DatabaseConnection))
     return list(result.scalars().all())
 
 
 async def delete_connection(session: AsyncSession, name: str) -> bool:
-    """Delete a database connection."""
+    """Delete a database connection.
+    
+    Args:
+        session: Database session
+        name: Connection name
+        
+    Returns:
+        True if deleted, False if not found
+    """
     db_conn = await get_connection(session, name)
     if db_conn is None:
         return False
-
+    
     await session.delete(db_conn)
     await session.commit()
     return True
@@ -122,61 +161,22 @@ async def delete_connection(session: AsyncSession, name: str) -> bool:
 async def execute_query(
     url: str, database_type: str, sql: str
 ) -> dict[str, Any]:
-    """Execute a SQL query and return results."""
-    if database_type.lower() == "postgresql":
-        conn = await asyncpg.connect(url)
-        try:
-            rows = await conn.fetch(sql)
-            if not rows:
-                return {"columns": [], "rows": [], "row_count": 0}
-
-            columns = list(rows[0].keys())
-            rows_data = [list(row.values()) for row in rows]
-            return {
-                "columns": columns,
-                "rows": rows_data,
-                "row_count": len(rows_data),
-            }
-        finally:
-            await conn.close()
-    elif database_type.lower() == "mysql":
-        # Parse URL to extract connection parameters
-        parsed = urlparse(url)
-        host = parsed.hostname or "localhost"
-        port = parsed.port or 3306
-        user = parsed.username or "root"
-        password = parsed.password or ""
-        database = parsed.path.lstrip("/") if parsed.path else None
+    """Execute a SQL query and return results using appropriate adapter.
+    
+    Args:
+        url: Database connection URL
+        database_type: Database type identifier
+        sql: SQL SELECT query to execute
         
-        conn = await aiomysql.connect(
-            host=host,
-            port=port,
-            user=user,
-            password=password,
-            db=database,
-            charset="utf8mb4",
-        )
-        try:
-            cur = await conn.cursor(aiomysql.DictCursor)
-            await cur.execute(sql)
-            rows = await cur.fetchall()
-            await cur.close()
-            
-            if not rows:
-                return {"columns": [], "rows": [], "row_count": 0}
-            
-            # Extract column names from first row
-            columns = list(rows[0].keys())
-            rows_data = [list(row.values()) for row in rows]
-            
-            return {
-                "columns": columns,
-                "rows": rows_data,
-                "row_count": len(rows_data),
-            }
-        finally:
-            conn.close()
-            await conn.ensure_closed()
-    else:
-        raise ValueError(f"Unsupported database type: {database_type}")
-
+    Returns:
+        Dictionary with columns, rows, and row_count
+        
+    Raises:
+        ValueError: If database type is unsupported or query execution fails
+    """
+    factory = get_adapter_factory()
+    adapter = factory.create(database_type)
+    connection_info = ConnectionInfo.from_url(url)
+    
+    result = await adapter.execute_query(connection_info, sql)
+    return result.to_dict()

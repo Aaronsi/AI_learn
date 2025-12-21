@@ -123,7 +123,12 @@ submit pr
 ## 测试 MySQL db支持
 目前mysql已经得到支持，在 ./w2/db_query/fixtures/test.rest 中添加 MySQL db 支持的测试用例，然后运行测试。如果后端测试 ok， 那么打开后端和前端，使用playwright 测试前端，确保 MySQL db 的基本功能：
 
-- 添加 新的数据库 chapter1（url为mysql://root:root@localhost:3306/chapter1）
+- 添加 新的数据库 chapter1（url为mysql://root:root@123@localhost:3306/chapter1）
 - 生成查询 chapter1，并显示结果
 - 自然语言生成 MySQL sql，查询  chapter1, 并显示结果
 
+## review 代码
+@agent-py-arch 帮我仔细查看 ./w2/db_query/backend 的架构，目前因为添加了新的数据库，需要重新考虑整体的设计，最好设计一套 interface, 为以后添加更多数据库留有余地，不至于到处修改已有代码。设计要符合 Open-Close 和 SOLID 原则。
+
+## py-arch agent review代码
+新的设计放在 ./specs/w2/0001-improvement.md
