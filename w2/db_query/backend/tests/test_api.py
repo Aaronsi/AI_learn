@@ -218,13 +218,17 @@ class TestQueryDatabase:
             "row_count": 1,
         }
         
-        with patch("app.services.database.execute_query", new_callable=AsyncMock) as mock_execute:
+        with patch("app.routes.databases.execute_query", new_callable=AsyncMock) as mock_execute:
             mock_execute.return_value = mock_result
             
             response = client.post(
                 "/api/v1/dbs/test_db/query",
                 json={"sql": "SELECT * FROM users"}
             )
+            
+            if response.status_code != 200:
+                print(f"Response status: {response.status_code}")
+                print(f"Response body: {response.text}")
             
             assert response.status_code == 200
             data = response.json()
@@ -285,7 +289,7 @@ class TestRefreshMetadata:
         await test_db_session.commit()
 
         # Mock metadata refresh
-        with patch("app.routes.databases.refresh_metadata", new_callable=AsyncMock) as mock_refresh:
+        with patch("app.services.metadata.refresh_metadata", new_callable=AsyncMock) as mock_refresh:
             from app.models import DatabaseMetadata
             mock_metadata = DatabaseMetadata(
                 connection_name="test_db",
@@ -364,7 +368,7 @@ class TestGetTableColumns:
         await test_db_session.commit()
 
         # Mock asyncpg connection
-        with patch("app.routes.databases.asyncpg.connect", new_callable=AsyncMock) as mock_connect:
+        with patch("app.services.metadata.asyncpg.connect", new_callable=AsyncMock) as mock_connect:
             mock_conn = AsyncMock()
             mock_rows = [
                 {
@@ -419,7 +423,7 @@ class TestNaturalLanguageQuery:
         with patch("app.services.llm.generate_sql_from_natural_language", new_callable=AsyncMock) as mock_llm:
             mock_llm.return_value = ("SELECT * FROM users", None)
             
-            with patch("app.services.database.execute_query", new_callable=AsyncMock) as mock_execute:
+            with patch("app.routes.databases.execute_query", new_callable=AsyncMock) as mock_execute:
                 mock_execute.return_value = {
                     "columns": ["id", "name"],
                     "rows": [[1, "test"]],
@@ -448,14 +452,18 @@ class TestNaturalLanguageQuery:
         test_db_session.add(conn)
         await test_db_session.commit()
 
-        response = client.post(
-            "/api/v1/dbs/test_db/query/natural",
-            json={"prompt": "查询所有用户"}
-        )
-        
-        assert response.status_code == 404
-        data = response.json()
-        assert "detail" in data
-        assert "error" in data["detail"]
-        assert data["detail"]["error"]["code"] == "metadata_not_found"
+        # Mock refresh_metadata to raise an error (simulating connection failure)
+        with patch("app.services.metadata.refresh_metadata", new_callable=AsyncMock) as mock_refresh:
+            mock_refresh.side_effect = Exception("Connection failed")
+            
+            response = client.post(
+                "/api/v1/dbs/test_db/query/natural",
+                json={"prompt": "查询所有用户"}
+            )
+            
+            # Should return 500 because refresh failed
+            assert response.status_code == 500
+            data = response.json()
+            assert "detail" in data
+            assert "error" in data["detail"]
 

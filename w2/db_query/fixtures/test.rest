@@ -1,0 +1,107 @@
+### Variables
+@baseUrl = http://localhost:8000
+@mysqlDbName = chapter1
+@mysqlUrl = mysql://root:root%40123@localhost:3306/chapter1
+
+### Health Check
+GET {{baseUrl}}/health
+
+### Get All Databases
+GET {{baseUrl}}/api/v1/dbs
+
+### Add MySQL Database Connection (chapter1)
+PUT {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}
+Content-Type: application/json
+
+{
+  "url": "{{mysqlUrl}}"
+}
+
+### Get All Databases (After adding MySQL)
+GET {{baseUrl}}/api/v1/dbs
+
+### Get MySQL Database Metadata (wait a bit for metadata refresh)
+GET {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}
+
+### Refresh MySQL Database Metadata
+POST {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}/refresh
+
+### Get MySQL Database Metadata (After refresh)
+GET {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}
+
+### Get MySQL Database Tables
+GET {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}/tables
+
+### Get MySQL Database Tables (with schema filter)
+GET {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}/tables?schema=chapter1
+
+### Get MySQL Table Columns (employees table example)
+GET {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}/tables/chapter1/employees/columns
+
+### Execute MySQL SQL Query - Select all from employees
+POST {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}/query
+Content-Type: application/json
+
+{
+  "sql": "SELECT * FROM employees"
+}
+
+### Execute MySQL SQL Query - Select with WHERE clause
+POST {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}/query
+Content-Type: application/json
+
+{
+  "sql": "SELECT * FROM employees LIMIT 10"
+}
+
+### Execute MySQL SQL Query - Select specific columns
+POST {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}/query
+Content-Type: application/json
+
+{
+  "sql": "SELECT employee_id, first_name, last_name FROM employees"
+}
+
+### Natural Language Query - MySQL (Query employees table)
+POST {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}/query/natural
+Content-Type: application/json
+
+{
+  "prompt": "查询 employees 表的所有信息"
+}
+
+### Natural Language Query - MySQL (Query with conditions)
+POST {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}/query/natural
+Content-Type: application/json
+
+{
+  "prompt": "查询 employees 表中前 10 条记录"
+}
+
+### Natural Language Query - MySQL (Query specific columns)
+POST {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}/query/natural
+Content-Type: application/json
+
+{
+  "prompt": "显示 employees 表的员工姓名和ID"
+}
+
+### Test MySQL SQL Validation - Should fail (INSERT not allowed)
+POST {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}/query
+Content-Type: application/json
+
+{
+  "sql": "INSERT INTO employees VALUES (1, 'Test', 'User')"
+}
+
+### Test MySQL SQL Validation - Should fail (Syntax error)
+POST {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}/query
+Content-Type: application/json
+
+{
+  "sql": "SELECT * FROM WHERE"
+}
+
+### Delete MySQL Database Connection
+DELETE {{baseUrl}}/api/v1/dbs/{{mysqlDbName}}
+

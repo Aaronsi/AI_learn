@@ -18,10 +18,9 @@ from ..schemas import (
     SqlQueryRequest,
     SqlQueryResponse,
 )
+from ..adapters import ConnectionInfo, get_adapter_factory
 from ..services.database import delete_connection, execute_query, get_connection, list_connections, save_connection
 from ..services.metadata import (
-    fetch_mysql_metadata,
-    fetch_postgres_metadata,
     get_metadata as get_metadata_service,
     refresh_metadata,
 )
@@ -360,26 +359,18 @@ async def get_db_tables(
         )
 
     try:
-        if db_conn.database_type.lower() == "postgresql":
-            # Fetch tables directly from database
-            raw_metadata = await fetch_postgres_metadata(db_conn.url)
-        elif db_conn.database_type.lower() == "mysql":
-            # Fetch tables directly from database
-            raw_metadata = await fetch_mysql_metadata(db_conn.url)
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"error": {"code": "unsupported_database", "message": f"Unsupported database type: {db_conn.database_type}", "details": None}},
-            )
+        # Use adapter factory to get appropriate adapter
+        factory = get_adapter_factory()
+        adapter = factory.create(db_conn.database_type)
+        connection_info = ConnectionInfo.from_url(db_conn.url)
         
-        # Filter by schema if provided
-        if schema:
-            raw_metadata = [t for t in raw_metadata if t.get("schema") == schema]
+        # Fetch tables using adapter
+        tables = await adapter.fetch_tables(connection_info, schema)
         
         # Group by schema
         schema_map: dict[str, list[dict[str, Any]]] = {}
-        for table in raw_metadata:
-            table_schema = table.get("schema", "public" if db_conn.database_type.lower() == "postgresql" else "")
+        for table in tables:
+            table_schema = table.get("schema", adapter.default_schema)
             if table_schema not in schema_map:
                 schema_map[table_schema] = []
             schema_map[table_schema].append({
@@ -392,9 +383,9 @@ async def get_db_tables(
             "schemas": [
                 {
                     "name": schema_name,
-                    "tables": tables,
+                    "tables": tables_list,
                 }
-                for schema_name, tables in schema_map.items()
+                for schema_name, tables_list in schema_map.items()
             ]
         }
     except Exception as e:
@@ -425,101 +416,19 @@ async def get_table_columns(
         )
 
     try:
-        if db_conn.database_type.lower() == "postgresql":
-            import asyncpg
-            
-            conn = await asyncpg.connect(db_conn.url)
-            try:
-                query = """
-                SELECT 
-                    column_name,
-                    data_type,
-                    is_nullable,
-                    column_default,
-                    ordinal_position
-                FROM information_schema.columns
-                WHERE table_schema = $1 AND table_name = $2
-                ORDER BY ordinal_position;
-                """
-                rows = await conn.fetch(query, schema, table)
-                
-                columns = []
-                for row in rows:
-                    columns.append({
-                        "name": row["column_name"],
-                        "type": row["data_type"],
-                        "nullable": row["is_nullable"] == "YES",
-                        "default": row["column_default"],
-                        "position": row["ordinal_position"],
-                    })
-                
-                return {
-                    "schema": schema,
-                    "table": table,
-                    "columns": columns,
-                }
-            finally:
-                await conn.close()
-        elif db_conn.database_type.lower() == "mysql":
-            import aiomysql
-            from urllib.parse import urlparse
-            
-            # Parse URL to extract connection parameters
-            parsed = urlparse(db_conn.url)
-            host = parsed.hostname or "localhost"
-            port = parsed.port or 3306
-            user = parsed.username or "root"
-            password = parsed.password or ""
-            database = parsed.path.lstrip("/") if parsed.path else None
-            
-            conn = await aiomysql.connect(
-                host=host,
-                port=port,
-                user=user,
-                password=password,
-                db=database,
-                charset="utf8mb4",
-            )
-            try:
-                cur = await conn.cursor(aiomysql.DictCursor)
-                query = """
-                SELECT 
-                    column_name,
-                    data_type,
-                    is_nullable,
-                    column_default,
-                    ordinal_position
-                FROM information_schema.columns
-                WHERE table_schema = %s AND table_name = %s
-                ORDER BY ordinal_position;
-                """
-                await cur.execute(query, (schema, table))
-                rows = await cur.fetchall()
-                await cur.close()
-                
-                columns = []
-                for row in rows:
-                    columns.append({
-                        "name": row["column_name"],
-                        "type": row["data_type"],
-                        "nullable": row["is_nullable"] == "YES",
-                        "default": row["column_default"],
-                        "position": row["ordinal_position"],
-                    })
-                
-                return {
-                    "schema": schema,
-                    "table": table,
-                    "columns": columns,
-                }
-            finally:
-                conn.close()
-                await conn.ensure_closed()
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"error": {"code": "unsupported_database", "message": f"Unsupported database type: {db_conn.database_type}", "details": None}},
-            )
+        # Use adapter factory to get appropriate adapter
+        factory = get_adapter_factory()
+        adapter = factory.create(db_conn.database_type)
+        connection_info = ConnectionInfo.from_url(db_conn.url)
+        
+        # Fetch columns using adapter
+        columns = await adapter.fetch_table_columns(connection_info, schema, table)
+        
+        return {
+            "schema": schema,
+            "table": table,
+            "columns": columns,
+        }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

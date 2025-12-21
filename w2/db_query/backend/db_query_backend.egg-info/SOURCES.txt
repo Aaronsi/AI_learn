@@ -13,6 +13,10 @@ db_query_backend.egg-info/requires.txt
 db_query_backend.egg-info/top_level.txt
 tests/test_api.py
 tests/test_database.py
+tests/test_execute_query.py
 tests/test_llm.py
 tests/test_metadata.py
+tests/test_refresh_metadata.py
+tests/test_routes_edge_cases.py
 tests/test_sql_parser.py
+tests/test_sql_parser_edge_cases.py
