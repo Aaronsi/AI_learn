@@ -25,6 +25,22 @@ class DatabaseConnectionRequest(CamelCaseModel):
     """Schema for creating/updating a database connection."""
 
     url: str = Field(..., description="Database connection URL")
+    database_type: str | None = Field(None, description="Database type (postgresql, mysql, etc.). Auto-detected from URL if not provided.")
+
+
+class TestConnectionRequest(CamelCaseModel):
+    """Schema for testing a database connection."""
+
+    url: str = Field(..., description="Database connection URL")
+    database_type: str | None = Field(None, description="Database type (postgresql, mysql, etc.). Auto-detected from URL if not provided.")
+
+
+class TestConnectionResponse(CamelCaseModel):
+    """Schema for test connection response."""
+
+    success: bool = Field(..., description="Whether the connection test succeeded")
+    message: str = Field(..., description="Test result message")
+    database_type: str | None = Field(None, description="Detected database type")
 
 
 class DatabaseConnectionResponse(CamelCaseModel):

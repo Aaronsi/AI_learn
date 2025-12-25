@@ -38,15 +38,15 @@ class ConnectionInfo:
         Returns:
             ConnectionInfo instance with parsed connection parameters
         """
-        from urllib.parse import urlparse
+        from urllib.parse import urlparse, unquote
         
         parsed = urlparse(url)
         return cls(
             url=url,
             host=parsed.hostname or "localhost",
             port=parsed.port or cls._default_port(parsed.scheme),
-            user=parsed.username or "",
-            password=parsed.password or "",
+            user=unquote(parsed.username) if parsed.username else "",
+            password=unquote(parsed.password) if parsed.password else "",
             database=parsed.path.lstrip("/") if parsed.path else None,
         )
     

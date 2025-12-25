@@ -132,3 +132,5 @@ submit pr
 
 ## py-arch agent review代码
 新的设计放在 ./specs/w2/0001-improvement.md
+
+根据以上的重构设计 @ architecture_redesign.md 和 @implementation_guide.md 来完整实现所有 phase, 并确保 @ test.rest 测试通过。

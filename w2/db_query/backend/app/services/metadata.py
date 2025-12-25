@@ -95,7 +95,7 @@ async def refresh_metadata(
     db_conn = db_conn_result.scalar_one_or_none()
     if db_conn is None:
         raise ValueError(f"Connection {connection_name} not found")
-    
+
     try:
         # Use adapter factory to get appropriate adapter
         factory = get_adapter_factory()
@@ -104,26 +104,26 @@ async def refresh_metadata(
         
         logger.info(f"Fetching {adapter.database_type} metadata for {connection_name}")
         raw_metadata = await adapter.fetch_metadata(connection_info)
-        logger.info(f"Fetched {len(raw_metadata)} tables/views")
-        
-        # Try to convert to structured JSON using LLM
-        # If LLM conversion fails (e.g., insufficient balance), use raw metadata as fallback
-        try:
-            logger.info("Converting metadata using LLM")
-            structured_metadata = await convert_metadata_to_json(raw_metadata)
-            logger.info("Metadata conversion successful")
-        except Exception as llm_error:
-            error_str = str(llm_error)
-            # Check if it's a balance/API error
-            if "402" in error_str or "Insufficient Balance" in error_str or "balance" in error_str.lower():
+            logger.info(f"Fetched {len(raw_metadata)} tables/views")
+            
+            # Try to convert to structured JSON using LLM
+            # If LLM conversion fails (e.g., insufficient balance), use raw metadata as fallback
+            try:
+                logger.info("Converting metadata using LLM")
+                structured_metadata = await convert_metadata_to_json(raw_metadata)
+                logger.info("Metadata conversion successful")
+            except Exception as llm_error:
+                error_str = str(llm_error)
+                # Check if it's a balance/API error
+                if "402" in error_str or "Insufficient Balance" in error_str or "balance" in error_str.lower():
                 logger.warning(
                     f"LLM conversion failed due to API balance issue, using raw metadata format: {error_str}"
                 )
-                # Use raw metadata in a compatible format
+                    # Use raw metadata in a compatible format
                 structured_metadata = _convert_raw_metadata_to_structured(raw_metadata, adapter.default_schema)
-            else:
-                # For other errors, still try to use raw metadata format
-                logger.warning(f"LLM conversion failed, using raw metadata format: {error_str}")
+                else:
+                    # For other errors, still try to use raw metadata format
+                    logger.warning(f"LLM conversion failed, using raw metadata format: {error_str}")
                 structured_metadata = _convert_raw_metadata_to_structured(raw_metadata, adapter.default_schema)
         
         return await save_metadata(session, connection_name, structured_metadata)
@@ -145,20 +145,20 @@ def _convert_raw_metadata_to_structured(
         Structured metadata dictionary
     """
     return {
-        "tables": [
-            {
+                        "tables": [
+                            {
                 "name": f"{item.get('schema', default_schema)}.{item.get('name', '')}",
-                "type": item.get("type", "table"),
-                "columns": [
-                    {
-                        "name": col.get("column_name", ""),
-                        "type": col.get("data_type", ""),
-                        "nullable": col.get("is_nullable", "NO") == "YES",
-                        "default": col.get("column_default"),
+                                "type": item.get("type", "table"),
+                                "columns": [
+                                    {
+                                        "name": col.get("column_name", ""),
+                                        "type": col.get("data_type", ""),
+                                        "nullable": col.get("is_nullable", "NO") == "YES",
+                                        "default": col.get("column_default"),
+                                    }
+                                    for col in (item.get("columns") or [])
+                                ],
+                            }
+                            for item in raw_metadata
+                        ]
                     }
-                    for col in (item.get("columns") or [])
-                ],
-            }
-            for item in raw_metadata
-        ]
-    }
