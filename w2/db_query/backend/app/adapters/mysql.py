@@ -174,6 +174,14 @@ class MySQLAdapter:
             
             metadata = []
             for row in rows:
+                # Handle case where DictCursor might return uppercase keys
+                table_schema = row.get("table_schema") or row.get("TABLE_SCHEMA", "")
+                table_name = row.get("table_name") or row.get("TABLE_NAME", "")
+                table_type = row.get("table_type") or row.get("TABLE_TYPE", "BASE TABLE")
+                
+                if not table_schema or not table_name:
+                    continue
+                
                 # Fetch columns separately for each table
                 columns_query = """
                 SELECT 
@@ -186,24 +194,24 @@ class MySQLAdapter:
                 WHERE table_schema = %s AND table_name = %s
                 ORDER BY ordinal_position;
                 """
-                await cur.execute(columns_query, (row["table_schema"], row["table_name"]))
+                await cur.execute(columns_query, (table_schema, table_name))
                 column_rows = await cur.fetchall()
                 
                 columns = [
                     {
-                        "column_name": col["column_name"],
-                        "data_type": col["data_type"],
-                        "is_nullable": col["is_nullable"],
-                        "column_default": col["column_default"],
+                        "column_name": col.get("column_name") or col.get("COLUMN_NAME", ""),
+                        "data_type": col.get("data_type") or col.get("DATA_TYPE", ""),
+                        "is_nullable": col.get("is_nullable") or col.get("IS_NULLABLE", "NO"),
+                        "column_default": col.get("column_default") or col.get("COLUMN_DEFAULT"),
                     }
                     for col in column_rows
                 ]
                 
                 metadata.append(
                     {
-                        "schema": row["table_schema"],
-                        "name": row["table_name"],
-                        "type": "table" if row["table_type"] == "BASE TABLE" else "view",
+                        "schema": table_schema,
+                        "name": table_name,
+                        "type": "table" if table_type == "BASE TABLE" else "view",
                         "columns": columns,
                     }
                 )
@@ -233,9 +241,9 @@ class MySQLAdapter:
         
         return [
             {
-                "name": item["name"],
-                "type": item["type"],
-                "schema": item["schema"],
+                "name": item.get("name", ""),
+                "type": item.get("type", "table"),
+                "schema": item.get("schema", self.default_schema),
             }
             for item in metadata
         ]
@@ -271,13 +279,17 @@ class MySQLAdapter:
             rows = await cur.fetchall()
             await cur.close()
             
+            if not rows:
+                return []
+            
+            # Handle case where DictCursor might return different key formats
             return [
                 {
-                    "name": row["column_name"],
-                    "type": row["data_type"],
-                    "nullable": row["is_nullable"] == "YES",
-                    "default": row["column_default"],
-                    "position": row["ordinal_position"],
+                    "name": row.get("column_name") or row.get("COLUMN_NAME", ""),
+                    "type": row.get("data_type") or row.get("DATA_TYPE", ""),
+                    "nullable": (row.get("is_nullable") or row.get("IS_NULLABLE", "NO")) == "YES",
+                    "default": row.get("column_default") or row.get("COLUMN_DEFAULT"),
+                    "position": row.get("ordinal_position") or row.get("ORDINAL_POSITION", 0),
                 }
                 for row in rows
             ]

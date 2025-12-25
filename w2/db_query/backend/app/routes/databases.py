@@ -17,9 +17,11 @@ from ..schemas import (
     NaturalLanguageQueryResponse,
     SqlQueryRequest,
     SqlQueryResponse,
+    TestConnectionRequest,
+    TestConnectionResponse,
 )
 from ..adapters import ConnectionInfo, get_adapter_factory
-from ..services.database import delete_connection, execute_query, get_connection, list_connections, save_connection
+from ..services.database import delete_connection, detect_database_type, execute_query, get_connection, list_connections, save_connection, test_connection
 from ..services.metadata import (
     get_metadata as get_metadata_service,
     refresh_metadata,
@@ -27,6 +29,7 @@ from ..services.metadata import (
 from ..services.sql_parser import add_limit_if_needed, validate_sql
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get(
@@ -45,6 +48,51 @@ async def list_dbs(session: AsyncSession = Depends(get_session)) -> DatabaseList
     )
 
 
+@router.post(
+    "/api/v1/dbs/test",
+    response_model=TestConnectionResponse,
+    summary="Test database connection",
+    description="Test a database connection without saving it",
+)
+async def test_db_connection(
+    request: TestConnectionRequest,
+) -> TestConnectionResponse:
+    """Test a database connection."""
+    try:
+        # Detect database type if not provided
+        database_type = request.database_type or detect_database_type(request.url)
+        
+        if database_type == "unknown":
+            return TestConnectionResponse(
+                success=False,
+                message="无法识别数据库类型。请提供有效的连接URL（如 postgresql:// 或 mysql://）",
+                database_type=None,
+            )
+        
+        # Test connection
+        success = await test_connection(request.url, database_type)
+        
+        if success:
+            return TestConnectionResponse(
+                success=True,
+                message="连接测试成功！数据库连接正常。",
+                database_type=database_type,
+            )
+        else:
+            return TestConnectionResponse(
+                success=False,
+                message="连接测试失败。请检查连接参数是否正确。",
+                database_type=database_type,
+            )
+    except Exception as e:
+        logger.error(f"Error testing connection: {str(e)}", exc_info=True)
+        return TestConnectionResponse(
+            success=False,
+            message=f"连接测试失败: {str(e)}",
+            database_type=request.database_type,
+        )
+
+
 @router.put(
     "/api/v1/dbs/{name}",
     response_model=DatabaseConnectionResponse,
@@ -58,7 +106,9 @@ async def put_db(
 ) -> DatabaseConnectionResponse:
     """Add or update a database connection."""
     try:
-        db_conn = await save_connection(session, name, request.url)
+        # Use provided database_type or detect from URL
+        database_type = request.database_type or detect_database_type(request.url)
+        db_conn = await save_connection(session, name, request.url, database_type)
 
         # Trigger metadata refresh asynchronously (don't wait)
         # Use a new session for the background task to avoid session closure issues
@@ -374,8 +424,8 @@ async def get_db_tables(
             if table_schema not in schema_map:
                 schema_map[table_schema] = []
             schema_map[table_schema].append({
-                "name": table["name"],
-                "type": table["type"],
+                "name": table.get("name", ""),
+                "type": table.get("type", "table"),
                 "schema": table_schema,
             })
         

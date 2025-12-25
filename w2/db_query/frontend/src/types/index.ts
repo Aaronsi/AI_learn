@@ -14,6 +14,18 @@ export interface DatabaseListResponse {
 
 export interface DatabaseConnectionRequest {
   url: string
+  databaseType?: string
+}
+
+export interface TestConnectionRequest {
+  url: string
+  databaseType?: string
+}
+
+export interface TestConnectionResponse {
+  success: boolean
+  message: string
+  databaseType?: string | null
 }
 
 export interface MetadataResponse {

@@ -80,7 +80,7 @@ async def get_connection(
 
 
 async def save_connection(
-    session: AsyncSession, name: str, url: str
+    session: AsyncSession, name: str, url: str, database_type: str | None = None
 ) -> DatabaseConnection:
     """Save or update a database connection.
     
@@ -88,6 +88,7 @@ async def save_connection(
         session: Database session
         name: Connection name
         url: Database connection URL
+        database_type: Optional database type (auto-detected if not provided)
         
     Returns:
         DatabaseConnection instance
@@ -95,8 +96,9 @@ async def save_connection(
     Raises:
         ValueError: If database type is unsupported or connection fails
     """
-    # Detect database type
-    database_type = detect_database_type(url)
+    # Detect database type if not provided
+    if not database_type:
+        database_type = detect_database_type(url)
     
     factory = get_adapter_factory()
     if not factory.is_supported(database_type):

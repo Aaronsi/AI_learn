@@ -4,10 +4,10 @@ test.describe('MySQL Database Support', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to page
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    
+
     // Wait for root element
     await page.waitForSelector('#root', { state: 'attached', timeout: 10000 });
-    
+
     // Wait for React to render
     await page.waitForFunction(() => {
       const root = document.getElementById('root');
@@ -15,7 +15,7 @@ test.describe('MySQL Database Support', () => {
     }, { timeout: 15000 });
     
     // Give React more time to fully render
-    await page.waitForTimeout(2000);
+      await page.waitForTimeout(2000);
   });
 
   test('should display chapter1 MySQL database in the list', async ({ page }) => {
@@ -46,7 +46,7 @@ test.describe('MySQL Database Support', () => {
     await chapter1Item.click();
     
     await page.waitForTimeout(1000);
-    
+
     // Find SQL editor
     const sqlEditor = page.locator('.monaco-editor').or(page.locator('textarea')).or(page.locator('[class*="editor"]')).first();
     await expect(sqlEditor).toBeVisible({ timeout: 10000 });
@@ -58,10 +58,10 @@ test.describe('MySQL Database Support', () => {
     // Find and click execute button
     const executeButton = page.locator('button').filter({ hasText: /执行|查询|Execute|Run/i }).first();
     await executeButton.click();
-    
+
     // Wait for results
     await page.waitForTimeout(3000);
-    
+
     // Check for results table or data
     const resultsTable = page.locator('table').or(page.locator('[role="table"]')).or(page.locator('[class*="table"]'));
     const tableCount = await resultsTable.count();
@@ -76,7 +76,7 @@ test.describe('MySQL Database Support', () => {
     await chapter1Item.click();
     
     await page.waitForTimeout(1000);
-    
+
     // Find SQL editor
     const sqlEditor = page.locator('.monaco-editor').or(page.locator('textarea')).or(page.locator('[class*="editor"]')).first();
     await expect(sqlEditor).toBeVisible({ timeout: 10000 });
@@ -84,11 +84,11 @@ test.describe('MySQL Database Support', () => {
     // Type SQL query
     await sqlEditor.click();
     await sqlEditor.fill('SELECT employee_id, en_name, ch_name FROM employees LIMIT 3');
-    
+
     // Find and click execute button
     const executeButton = page.locator('button').filter({ hasText: /执行|查询|Execute|Run/i }).first();
     await executeButton.click();
-    
+
     // Wait for results
     await page.waitForTimeout(3000);
     

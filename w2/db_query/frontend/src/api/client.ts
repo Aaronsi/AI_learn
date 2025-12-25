@@ -9,6 +9,8 @@ import type {
   SqlQueryResponse,
   NaturalLanguageQueryRequest,
   NaturalLanguageQueryResponse,
+  TestConnectionRequest,
+  TestConnectionResponse,
 } from '../types'
 
 const API_BASE_URL = '/api/v1'
@@ -95,6 +97,60 @@ class ApiClient {
 
   async deleteDatabase(name: string): Promise<void> {
     await this.client.delete(`/dbs/${name}`)
+  }
+
+  async testConnection(request: TestConnectionRequest): Promise<TestConnectionResponse> {
+    try {
+      console.log('[API Client] Calling POST /dbs/test with:', { 
+        ...request, 
+        url: request.url.replace(/:[^:@]+@/, ':***@') 
+      })
+      
+      const response = await this.client.post<TestConnectionResponse>(
+        '/dbs/test',
+        request,
+        {
+          timeout: 30000, // 30 second timeout
+        }
+      )
+      
+      console.log('[API Client] Response received:', response.data)
+      return response.data
+    } catch (error: any) {
+      console.error('[API Client] Error:', error)
+      console.error('[API Client] Error response:', error.response?.data)
+      console.error('[API Client] Error status:', error.response?.status)
+      
+      // Handle API errors and convert to TestConnectionResponse format
+      if (error.response?.data?.error) {
+        const apiError = error.response.data.error
+        return {
+          success: false,
+          message: apiError.message || '连接测试失败',
+          databaseType: request.databaseType || null,
+        }
+      }
+      
+      // Handle network errors
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        return {
+          success: false,
+          message: '连接超时，请检查后端服务是否正常运行',
+          databaseType: request.databaseType || null,
+        }
+      }
+      
+      if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+        return {
+          success: false,
+          message: '网络错误，无法连接到后端服务',
+          databaseType: request.databaseType || null,
+        }
+      }
+      
+      // Re-throw if it's not an API error
+      throw error
+    }
   }
 
   async getDatabaseTables(
