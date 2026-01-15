@@ -1,0 +1,58 @@
+databases:
+  - name: "postgres"
+    host: "localhost"
+    port: 5432
+    database: "myapp"
+    username: "postgres"
+    password: "postgres"
+    role: "readonly_role"   # 可选：会话降权角色
+    ssl_mode: "prefer"
+    schemas:
+      - "public"
+      - "sales"
+    exclude_tables:
+      - "internal_logs"
+      - "audit_*"
+    min_pool_size: 2
+    max_pool_size: 10
+
+llm:
+  api_key: "sk-czxrtftrjlszminzjadicobjdpjbjqovxiotxzjpxajblqgm"
+  base_url: "https://api.deepseek.com"
+  model: "deepseek-chat"
+  temperature: 0.1
+  max_tokens: 2048
+  timeout: 30
+
+security:
+  max_rows: 200
+  hard_max_rows: 1000
+  query_timeout: 30
+  allowed_functions: []
+  sensitive_columns:
+    - "password"
+    - "secret"
+    - "token"
+    - "credential"
+    - "ssn"
+    - "credit_card"
+  enable_result_validation: true
+  max_retry_attempts: 3
+  validation_sample_rows: 20
+  validation_sample_cols: 10
+
+rate_limit:
+  llm_requests_per_minute: 60
+  db_queries_per_minute: 100
+  enable_circuit_breaker: true
+  circuit_breaker_threshold: 5
+  circuit_breaker_timeout: 60
+
+cache:
+  enable_disk_cache: true
+  cache_dir: ".pg_mcp_cache"
+  cache_ttl_hours: 24
+  auto_refresh_interval_hours: 0
+
+log_level: "INFO"
+

@@ -1,0 +1,80 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]: DB Query Tool
+    - generic [ref=e6]:
+      - complementary [ref=e7]:
+        - generic [ref=e9]:
+          - generic [ref=e10]:
+            - button "plus" [ref=e11] [cursor=pointer]:
+              - img "plus" [ref=e13]:
+                - img [ref=e14]
+            - button "reload" [ref=e17] [cursor=pointer]:
+              - img "reload" [ref=e19]:
+                - img [ref=e20]
+          - generic [ref=e23]:
+            - generic:
+              - textbox "for screen reader"
+            - tree [ref=e24]:
+              - generic [ref=e27]:
+                - treeitem "caret-down database postgres delete" [ref=e28]:
+                  - img "caret-down" [ref=e30] [cursor=pointer]:
+                    - img [ref=e31]
+                  - generic "postgres" [ref=e33] [cursor=pointer]:
+                    - generic [ref=e35]:
+                      - generic [ref=e37]:
+                        - img "database" [ref=e38]:
+                          - img [ref=e39]
+                        - generic [ref=e41]: postgres
+                      - button "delete" [ref=e42]:
+                        - img "delete" [ref=e44]:
+                          - img [ref=e45]
+                - treeitem "caret-down database chapter1 delete" [ref=e47]:
+                  - img "caret-down" [ref=e49] [cursor=pointer]:
+                    - img [ref=e50]
+                  - generic "chapter1" [ref=e52] [cursor=pointer]:
+                    - generic [ref=e54]:
+                      - generic [ref=e56]:
+                        - img "database" [ref=e57]:
+                          - img [ref=e58]
+                        - generic [ref=e60]: chapter1
+                      - button "delete" [ref=e61]:
+                        - img "delete" [ref=e63]:
+                          - img [ref=e64]
+      - main [ref=e66]:
+        - generic [ref=e67]:
+          - generic [ref=e68]:
+            - generic [ref=e71]: 自然语言查询
+            - generic [ref=e73]:
+              - textbox "例如：查询所有用户表的信息" [disabled] [ref=e75]
+              - button "thunderbolt 生成 SQL" [disabled] [ref=e77]:
+                - generic:
+                  - img "thunderbolt":
+                    - img
+                - generic: 生成 SQL
+          - generic [ref=e78]:
+            - generic [ref=e81]: SQL 编辑器
+            - generic [ref=e84]:
+              - generic [ref=e86]:
+                - button "play-circle 执行查询" [disabled] [ref=e88]:
+                  - generic:
+                    - img "play-circle":
+                      - img
+                  - generic: 执行查询
+                - generic [ref=e89]: 请先选择数据库
+              - code [ref=e93]:
+                - generic [ref=e94]:
+                  - textbox "Editor content" [ref=e95]
+                  - textbox [ref=e96]
+                  - generic [ref=e101]: "1"
+                  - generic [ref=e107]: SELECT version();
+          - generic [ref=e109]:
+            - generic [ref=e114]: 查询结果
+            - generic [ref=e117]: 暂无查询结果
+  - generic [ref=e118]:
+    - alert
+    - alert
+```

@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # DeepSeek API
-    deepseek_api_key: str = ""
+    deepseek_api_key: str = "sk-czxrtftrjlszminzjadicobjdpjbjqovxiotxzjpxajblqgm"
     deepseek_base_url: str = "https://api.deepseek.com"
 
     # SQLite Database

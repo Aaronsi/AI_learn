@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(npm run build:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "WebSearch",
+      "WebFetch(domain:elevenlabs.io)",
+      "Bash(npm test)",
+      "WebFetch(domain:gist.github.com)",
+      "Bash(cargo check:*)",
+      "WebFetch(domain:deepwiki.com)"
+    ]
+  }
+}
