@@ -1,6 +1,5 @@
 """Unit tests for function guard"""
 
-import pytest
 from sqlglot import parse_one
 from pg_mcp.security.function_guard import FunctionGuard
 

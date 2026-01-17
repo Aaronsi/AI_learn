@@ -30,6 +30,7 @@ async def test_build_dsn():
     manager = DBPoolManager()
     config = DatabaseConfig(
         name="test",
+        db_type="postgresql",
         host="localhost",
         port=5432,
         database="testdb",
@@ -37,7 +38,7 @@ async def test_build_dsn():
         password=SecretStr("pass"),
         ssl_mode="prefer",
     )
-    dsn = manager._build_dsn(config)
+    dsn = manager._build_postgresql_dsn(config)
     assert "postgresql://user:pass@localhost:5432/testdb" in dsn
     assert "sslmode=prefer" in dsn
 

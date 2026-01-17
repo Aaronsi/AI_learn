@@ -1,5 +1,7 @@
 databases:
+  # PostgreSQL 数据库示例
   - name: "main"
+    db_type: "postgresql"  # 数据库类型：postgresql 或 mysql
     host: "localhost"
     port: 5432
     database: "myapp"
@@ -15,6 +17,19 @@ databases:
       - "audit_*"
     min_pool_size: 2
     max_pool_size: 10
+  
+  # MySQL 数据库示例（注意密码中的 @ 符号会被自动处理）
+  - name: "mysql_db"
+    db_type: "mysql"
+    host: "localhost"
+    port: 3306
+    database: "mysql"
+    username: "root"
+    password: "root@123"  # 密码中的 @ 符号会被自动 URL 编码
+    schemas:
+      - "mysql"  # MySQL 中 schema 通常等于 database
+    min_pool_size: 2
+    max_pool_size: 10
 
 llm:
   api_key: "${DEEPSEEK_API_KEY}"
@@ -23,6 +38,7 @@ llm:
   temperature: 0.1
   max_tokens: 2048
   timeout: 30
+  cost_per_1k_tokens: 0.0
 
 security:
   max_rows: 200
@@ -40,6 +56,9 @@ security:
   max_retry_attempts: 3
   validation_sample_rows: 20
   validation_sample_cols: 10
+  enable_explain_check: false
+  explain_max_cost: null
+  explain_max_rows: null
 
 rate_limit:
   llm_requests_per_minute: 60

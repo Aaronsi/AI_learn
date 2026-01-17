@@ -1,7 +1,7 @@
 """Unit tests for SQL validator"""
 
 import pytest
-from pg_mcp.security.sql_validator import SQLValidator, ValidationResult
+from pg_mcp.security.sql_validator import SQLValidator
 from pg_mcp.models.errors import SecurityViolationError
 
 
@@ -85,7 +85,7 @@ def test_validate_or_raise():
 def test_allowed_functions():
     """Test allowed functions pass validation"""
     validator = SQLValidator(allowed_functions=["custom_func"])
-    result = validator.validate("SELECT custom_func(id) FROM users")
+    validator.validate("SELECT custom_func(id) FROM users")
     # Should pass if custom_func is in allowed list
     # Note: This depends on FunctionGuard implementation
 

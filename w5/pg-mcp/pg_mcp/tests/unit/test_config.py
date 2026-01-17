@@ -7,7 +7,6 @@ from pg_mcp.config.settings import (
     DatabaseConfig,
     LLMConfig,
     SecurityConfig,
-    RateLimitConfig,
     CacheConfig,
 )
 
@@ -66,6 +65,9 @@ def test_security_config_defaults():
     assert config.enable_result_validation is True
     assert config.max_retry_attempts == 3
     assert "password" in config.sensitive_columns
+    assert config.enable_explain_check is False
+    assert config.explain_max_cost is None
+    assert config.explain_max_rows is None
 
 
 def test_cache_config():

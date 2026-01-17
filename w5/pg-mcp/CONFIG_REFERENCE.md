@@ -96,6 +96,9 @@ llm:
 | `max_retry_attempts` | integer | ❌ | `3` | 最大重试次数（≥1） |
 | `validation_sample_rows` | integer | ❌ | `20` | 验证时采样行数（≥1） |
 | `validation_sample_cols` | integer | ❌ | `10` | 验证时采样列数（≥1） |
+| `enable_explain_check` | boolean | ❌ | `false` | 是否在执行前进行 EXPLAIN 检查 |
+| `explain_max_cost` | float | ❌ | `null` | EXPLAIN 允许的最大成本（≥0） |
+| `explain_max_rows` | integer | ❌ | `null` | EXPLAIN 允许的最大行数（≥1） |
 
 **示例**：
 ```yaml
@@ -115,6 +118,9 @@ security:
   max_retry_attempts: 3
   validation_sample_rows: 20
   validation_sample_cols: 10
+  enable_explain_check: false
+  explain_max_cost: null
+  explain_max_rows: null
 ```
 
 ### rate_limit（可选）

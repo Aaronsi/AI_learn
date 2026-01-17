@@ -1,6 +1,5 @@
 """Unit tests for sanitizer"""
 
-import pytest
 from pg_mcp.security.sanitizer import Sanitizer
 
 

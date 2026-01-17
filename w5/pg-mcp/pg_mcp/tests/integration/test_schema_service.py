@@ -1,7 +1,7 @@
 """Integration tests for schema service"""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from pathlib import Path
 import json
 import tempfile
@@ -10,7 +10,6 @@ import shutil
 from pg_mcp.config.settings import CacheConfig
 from pg_mcp.infrastructure.db_pool import DBPoolManager
 from pg_mcp.services.schema_service import SchemaService
-from pg_mcp.models.schema import DatabaseInfo
 
 
 @pytest.fixture
@@ -110,10 +109,10 @@ async def test_disk_cache(mock_db_pool, temp_cache_dir):
     schema_service = SchemaService(mock_db_pool, cache_config)
     
     # 第一次加载（从数据库）
-    db_info1 = await schema_service.load_all("test_db", ["public"])
+    await schema_service.load_all("test_db", ["public"])
     
     # 第二次加载（应该从缓存）
-    db_info2 = await schema_service.load_all("test_db", ["public"])
+    await schema_service.load_all("test_db", ["public"])
     
     # 验证缓存文件存在
     cache_file = temp_cache_dir / "test_db.json"

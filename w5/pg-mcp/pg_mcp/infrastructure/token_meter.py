@@ -1,9 +1,10 @@
 """Token metering and cost control"""
 
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Callable, Any
 
 from pg_mcp.infrastructure.metrics import Metrics
+from pg_mcp.infrastructure.logging import get_logger, has_structlog
 
 
 @dataclass
@@ -13,14 +14,18 @@ class TokenMeter:
     metrics: Metrics
     threshold: int = 1_000_000  # 默认阈值：100万tokens
     cost_threshold: float = 100.0  # 默认成本阈值：$100
+    cost_per_1k_tokens: float = 0.0  # 成本估算（每千token）
     alert_callback: Callable[[str, dict], None] | None = None
     degraded_mode: bool = False
+    logger: Any = field(default_factory=lambda: get_logger(__name__))
 
     def record_usage(
         self, prompt_tokens: int, completion_tokens: int, cost: float = 0.0
     ) -> None:
         """记录Token使用"""
         total_tokens = prompt_tokens + completion_tokens
+        if cost == 0.0 and self.cost_per_1k_tokens > 0:
+            cost = (total_tokens / 1000) * self.cost_per_1k_tokens
         self.metrics.record_tokens(total_tokens, cost)
 
         # 检查阈值
@@ -45,7 +50,10 @@ class TokenMeter:
             self.alert_callback(message, details)
         else:
             # 默认日志输出
-            print(f"WARNING: {message} - {details}")
+            if has_structlog():
+                self.logger.warning(message, **details)
+            else:
+                self.logger.warning("%s - %s", message, details)
 
     def should_skip_validation(self) -> bool:
         """是否应该跳过结果验证（降级策略）"""

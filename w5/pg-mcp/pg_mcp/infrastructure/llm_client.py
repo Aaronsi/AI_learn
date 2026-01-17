@@ -3,18 +3,24 @@
 import json
 from typing import Any
 
-from openai import AsyncOpenAI
-from openai.types.chat import ChatCompletion
+try:  # openai is optional in some test environments
+    from openai import AsyncOpenAI
+    from openai.types.chat import ChatCompletion
+except ImportError:  # pragma: no cover - depends on env
+    AsyncOpenAI = None  # type: ignore
+    ChatCompletion = Any  # type: ignore
 
 from pg_mcp.config.settings import LLMConfig
 from pg_mcp.models.errors import PgMcpError, ErrorCode
+from pg_mcp.infrastructure.log_sanitizer import LogSanitizer
+from pg_mcp.infrastructure.logging import get_logger, has_structlog
 
 
 class LLMClient:
     """LLM客户端（使用OpenAI兼容API对接DeepSeek）"""
 
-    # NL2SQL系统提示词
-    NL2SQL_SYSTEM_PROMPT = """你是一个PostgreSQL SQL专家。根据用户的自然语言描述和提供的数据库schema信息，生成精确的SQL查询语句。
+    # PostgreSQL NL2SQL系统提示词
+    NL2SQL_SYSTEM_PROMPT_PG = """你是一个PostgreSQL SQL专家。根据用户的自然语言描述和提供的数据库schema信息，生成精确的SQL查询语句。
 
 要求：
 1. 只生成SELECT语句
@@ -31,6 +37,31 @@ class LLMClient:
   "confidence": 0.0-1.0的置信度
 }"""
 
+    # MySQL NL2SQL系统提示词
+    NL2SQL_SYSTEM_PROMPT_MYSQL = """你是一个MySQL SQL专家。根据用户的自然语言描述和提供的数据库schema信息，生成精确的SQL查询语句。
+
+要求：
+1. 只生成SELECT语句
+2. 使用标准MySQL语法（注意：字符串用单引号，LIMIT语法，GROUP_CONCAT等）
+3. 合理使用JOIN、WHERE、GROUP BY、ORDER BY等子句
+4. 考虑性能优化，避免SELECT *
+5. 根据schema信息选择正确的表和列
+6. 对于模糊的需求，选择最合理的解释
+
+输出格式（JSON）：
+{
+  "sql": "生成的SQL语句",
+  "explanation": "SQL逻辑说明",
+  "confidence": 0.0-1.0的置信度
+}"""
+
+    @staticmethod
+    def get_nl2sql_prompt(db_type: str = "postgresql") -> str:
+        """根据数据库类型获取NL2SQL提示词"""
+        if db_type == "mysql":
+            return LLMClient.NL2SQL_SYSTEM_PROMPT_MYSQL
+        return LLMClient.NL2SQL_SYSTEM_PROMPT_PG
+
     VALIDATION_SYSTEM_PROMPT = """你是一个SQL查询结果验证专家。根据用户的原始查询意图、生成的SQL和查询结果样本，评估结果是否满足用户需求。
 
 输出格式（JSON）：
@@ -40,8 +71,16 @@ class LLMClient:
   "suggestions": ["改进建议列表"]
 }"""
 
-    def __init__(self, config: LLMConfig):
+    def __init__(self, config: LLMConfig, log_sanitizer: LogSanitizer | None = None):
         self.config = config
+        self.log_sanitizer = log_sanitizer
+        self.logger = get_logger(__name__)
+        if AsyncOpenAI is None:
+            raise PgMcpError(
+                code=ErrorCode.CONFIGURATION_ERROR,
+                message="Missing dependency: openai. Please install openai to use LLMClient.",
+                retryable=False,
+            )
         self.client = AsyncOpenAI(
             api_key=config.api_key.get_secret_value(),
             base_url=config.base_url,
@@ -52,10 +91,12 @@ class LLMClient:
         self,
         user_query: str,
         schema_context: str,
+        db_type: str = "postgresql",
     ) -> dict[str, Any]:
         """根据自然语言生成SQL"""
+        prompt = self.get_nl2sql_prompt(db_type)
         messages = [
-            {"role": "system", "content": self.NL2SQL_SYSTEM_PROMPT},
+            {"role": "system", "content": prompt},
             {
                 "role": "user",
                 "content": f"""数据库Schema信息：
@@ -107,6 +148,14 @@ class LLMClient:
 
     async def _chat_completion(self, messages: list[dict]) -> ChatCompletion:
         """调用Chat Completion API"""
+        if self.log_sanitizer:
+            safe_request = self.log_sanitizer.sanitize_llm_request(
+                {"messages": messages}
+            )
+            if has_structlog():
+                self.logger.debug("llm_request", **safe_request)
+            else:
+                self.logger.debug("llm_request %s", safe_request)
         return await self.client.chat.completions.create(
             model=self.config.model,
             messages=messages,

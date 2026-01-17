@@ -1,11 +1,8 @@
 """Security integration tests"""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock
 
 from pg_mcp.security.sql_validator import SQLValidator
 from pg_mcp.security.sanitizer import Sanitizer
-from pg_mcp.models.errors import SecurityViolationError
 
 
 class TestSQLInjection:

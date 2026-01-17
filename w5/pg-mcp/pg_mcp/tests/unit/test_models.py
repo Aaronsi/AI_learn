@@ -1,8 +1,7 @@
 """Unit tests for data models"""
 
-import pytest
-from pg_mcp.models.schema import ColumnInfo, TableInfo, SchemaInfo, DatabaseInfo
-from pg_mcp.models.query import QueryRequest, QueryResponse, SQLGenerationResult
+from pg_mcp.models.schema import ColumnInfo
+from pg_mcp.models.query import QueryRequest
 from pg_mcp.models.errors import ErrorCode, PgMcpError
 
 

@@ -1,23 +1,39 @@
 databases:
-  - name: "postgres"
+  - name: "small"
     host: "localhost"
     port: 5432
-    database: "myapp"
+    database: "pg_mcp_small"
     username: "postgres"
     password: "postgres"
-    role: "readonly_role"   # 可选：会话降权角色
-    ssl_mode: "prefer"
     schemas:
       - "public"
-      - "sales"
-    exclude_tables:
-      - "internal_logs"
-      - "audit_*"
-    min_pool_size: 2
-    max_pool_size: 10
+    min_pool_size: 1
+    max_pool_size: 5
+
+  - name: "medium"
+    host: "localhost"
+    port: 5432
+    database: "pg_mcp_medium"
+    username: "postgres"
+    password: "postgres"
+    schemas:
+      - "public"
+    min_pool_size: 1
+    max_pool_size: 5
+
+  - name: "large"
+    host: "localhost"
+    port: 5432
+    database: "pg_mcp_large"
+    username: "postgres"
+    password: "postgres"
+    schemas:
+      - "public"
+    min_pool_size: 1
+    max_pool_size: 5
 
 llm:
-  api_key: "sk-czxrtftrjlszminzjadicobjdpjbjqovxiotxzjpxajblqgm"
+  api_key: "sk-72a4e95a47b7433fab9abacddc36ae43"
   base_url: "https://api.deepseek.com"
   model: "deepseek-chat"
   temperature: 0.1
@@ -55,4 +71,3 @@ cache:
   auto_refresh_interval_hours: 0
 
 log_level: "INFO"
-

@@ -1,6 +1,5 @@
 """Main entry point for pg-mcp"""
 
-import sys
 
 from pg_mcp.server import mcp
 

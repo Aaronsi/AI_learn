@@ -24,7 +24,7 @@ class ValidationService:
         self, user_query: str, sql: str, result: QueryResultData
     ) -> dict:
         """返回验证结果和说明，不阻断主流程"""
-        _, safe_rows = self.sanitizer.sanitize_for_llm(
+        safe_columns, safe_rows = self.sanitizer.sanitize_for_llm(
             result.columns,
             result.rows,
             max_rows=self.sample_rows,
@@ -33,5 +33,7 @@ class ValidationService:
         summary = self.sanitizer.generate_summary(
             result.columns, result.rows, result.row_count
         )
+        summary["sample_columns"] = safe_columns
+        summary["sample_rows_data"] = safe_rows
         return await self.llm_client.validate_result(user_query, sql, summary)
 

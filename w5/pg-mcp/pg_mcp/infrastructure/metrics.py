@@ -1,14 +1,15 @@
 """Metrics collection and health checks"""
 
-import time
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
 from pg_mcp.infrastructure.db_pool import DBPoolManager
-from pg_mcp.infrastructure.llm_client import LLMClient
 from pg_mcp.infrastructure.rate_limiter import RateLimiter
-from pg_mcp.services.schema_service import SchemaService
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pg_mcp.services.schema_service import SchemaService
 
 
 @dataclass
@@ -138,8 +139,8 @@ class HealthChecker:
     def __init__(
         self,
         db_pool: DBPoolManager,
-        llm_client: LLMClient,
-        schema_service: SchemaService,
+        llm_client,
+        schema_service: "SchemaService",
         rate_limiter: RateLimiter,
     ):
         self.db_pool = db_pool
@@ -186,8 +187,9 @@ class HealthChecker:
             databases = self.db_pool.list_databases()
             if not databases:
                 return {"status": "error", "message": "No databases configured"}
-            # 尝试获取一个连接池
-            pool = self.db_pool.get_pool(databases[0])
+            # 进行轻量探测查询
+            async with self.db_pool.acquire_readonly(databases[0], timeout=5) as conn:
+                await conn.fetchval("SELECT 1")
             return {"status": "ok", "databases": len(databases)}
         except Exception as e:
             return {"status": "error", "message": str(e)}

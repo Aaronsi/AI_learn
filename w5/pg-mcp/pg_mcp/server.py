@@ -1,10 +1,14 @@
 """FastMCP server definition"""
 
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
+
 from fastmcp import FastMCP
 from pydantic import Field
 
 from pg_mcp.config.settings import Settings
 from pg_mcp.infrastructure.db_pool import DBPoolManager
+from pg_mcp.infrastructure.logging import configure_structlog
 from pg_mcp.infrastructure.llm_client import LLMClient
 from pg_mcp.infrastructure.rate_limiter import RateLimiter
 from pg_mcp.infrastructure.metrics import Metrics, HealthChecker
@@ -16,13 +20,6 @@ from pg_mcp.models.query import QueryRequest
 from pg_mcp.security.sanitizer import Sanitizer
 from pg_mcp.services.validation_service import ValidationService
 
-
-# 创建FastMCP实例
-mcp = FastMCP(
-    name="pg-mcp",
-    version="0.1.0",
-    description="PostgreSQL MCP Server - 自然语言查询数据库",
-)
 
 # 全局服务实例（在lifespan中初始化）
 settings: Settings
@@ -36,8 +33,8 @@ log_sanitizer: LogSanitizer
 health_checker: HealthChecker
 
 
-@mcp.lifespan
-async def lifespan():
+@asynccontextmanager
+async def app_lifespan(mcp_instance: FastMCP) -> AsyncIterator[None]:
     """应用生命周期管理"""
     global settings, db_pool, schema_service, query_service, rate_limiter, metrics, token_meter, log_sanitizer, health_checker
 
@@ -45,15 +42,18 @@ async def lifespan():
     settings = Settings()
 
     # 初始化基础设施
+    configure_structlog(settings.log_level)
     db_pool = DBPoolManager()
     await db_pool.initialize(settings.databases)
 
-    llm_client = LLMClient(settings.llm)
+    log_sanitizer = LogSanitizer(settings.security.sensitive_columns)
+    llm_client = LLMClient(settings.llm, log_sanitizer)
     rate_limiter = RateLimiter(settings.rate_limit)
     sanitizer = Sanitizer(settings.security.sensitive_columns)
-    log_sanitizer = LogSanitizer(settings.security.sensitive_columns)
     metrics = Metrics()
-    token_meter = TokenMeter(metrics)
+    token_meter = TokenMeter(
+        metrics, cost_per_1k_tokens=settings.llm.cost_per_1k_tokens
+    )
     validation_service = ValidationService(
         sanitizer,
         llm_client,
@@ -63,7 +63,7 @@ async def lifespan():
     health_checker = HealthChecker(db_pool, llm_client, None, rate_limiter)
 
     # 初始化服务
-    schema_service = SchemaService(db_pool, settings.cache)
+    schema_service = SchemaService(db_pool, settings.cache, metrics)
     query_service = QueryService(
         settings,
         db_pool,
@@ -98,6 +98,15 @@ async def lifespan():
     # 清理
     schema_service.stop_auto_refresh()
     await db_pool.close_all()
+
+
+# 创建FastMCP实例
+mcp = FastMCP(
+    name="pg-mcp",
+    version="0.1.0",
+    instructions="PostgreSQL MCP Server - 自然语言查询数据库",
+    lifespan=app_lifespan,
+)
 
 
 # ========== Tools ==========
@@ -165,8 +174,8 @@ async def list_tables(
 @mcp.tool()
 async def describe_table(
     database: str = Field(..., description="数据库名称"),
-    schema: str = Field(default="public", description="schema名称"),
     table: str = Field(..., description="表名"),
+    schema: str = Field(default="public", description="schema名称"),
 ) -> dict | None:
     """获取表的详细结构"""
     db_info = schema_service.get_cached(database)

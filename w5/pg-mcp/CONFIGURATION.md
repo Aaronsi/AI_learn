@@ -176,6 +176,9 @@ security:
     - "secret"
     - "token"
   enable_result_validation: true
+  enable_explain_check: false
+  explain_max_cost: null
+  explain_max_rows: null
 
 rate_limit:
   llm_requests_per_minute: 60

@@ -1,15 +1,24 @@
 """Configuration management using Pydantic Settings"""
 
 from pydantic import BaseModel, Field, SecretStr
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource
 from typing import Literal
 from pathlib import Path
+
+try:
+    from pydantic_settings import YamlConfigSettingsSource
+    HAS_YAML_SOURCE = True
+except ImportError:
+    HAS_YAML_SOURCE = False
 
 
 class DatabaseConfig(BaseModel):
     """单个数据库连接配置"""
 
     name: str = Field(..., description="数据库别名")
+    db_type: Literal["postgresql", "mysql"] = Field(
+        default="postgresql", description="数据库类型"
+    )
     host: str = Field(default="localhost")
     port: int = Field(default=5432)
     database: str = Field(..., description="数据库名")
@@ -36,6 +45,9 @@ class LLMConfig(BaseModel):
     temperature: float = Field(default=0.1, ge=0, le=2)
     max_tokens: int = Field(default=2048, ge=1)
     timeout: int = Field(default=30, ge=1)
+    cost_per_1k_tokens: float = Field(
+        default=0.0, ge=0, description="可选：每千token成本估算"
+    )
 
 
 class SecurityConfig(BaseModel):
@@ -55,6 +67,15 @@ class SecurityConfig(BaseModel):
     max_retry_attempts: int = Field(default=3, ge=1)
     validation_sample_rows: int = Field(default=20, ge=1)
     validation_sample_cols: int = Field(default=10, ge=1)
+    enable_explain_check: bool = Field(
+        default=False, description="执行前是否进行EXPLAIN安全检查"
+    )
+    explain_max_cost: float | None = Field(
+        default=None, ge=0, description="EXPLAIN计划允许的最大成本"
+    )
+    explain_max_rows: int | None = Field(
+        default=None, ge=1, description="EXPLAIN计划允许的最大行数"
+    )
 
 
 class RateLimitConfig(BaseModel):
@@ -88,7 +109,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="PG_MCP_",
         env_nested_delimiter="__",
-        yaml_file="pg_mcp.yaml",
+        yaml_file="pg-mcp.yaml",
         yaml_file_encoding="utf-8",
     )
 
@@ -98,4 +119,24 @@ class Settings(BaseSettings):
     rate_limit: RateLimitConfig = Field(default_factory=RateLimitConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """自定义配置源顺序，添加 YAML 支持"""
+        sources: list[PydanticBaseSettingsSource] = [
+            init_settings,
+            env_settings,
+        ]
+        if HAS_YAML_SOURCE:
+            sources.append(YamlConfigSettingsSource(settings_cls))
+        sources.append(dotenv_settings)
+        sources.append(file_secret_settings)
+        return tuple(sources)
 
