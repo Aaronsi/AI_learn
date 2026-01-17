@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 
 .fastembed_cache
+
+# Rust build artifacts
+target/
+**/target/
