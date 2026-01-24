@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(PGPASSWORD=postgres psql:*)",
+      "Bash(where:*)",
+      "Bash(dir:*)",
+      "Bash(python:*)"
+    ]
+  }
+}

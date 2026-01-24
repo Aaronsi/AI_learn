@@ -1,0 +1,31 @@
+{
+  "name": "simple-agent",
+  "version": "1.0.0",
+  "description": "A simple and easy-to-use agent framework with tool calling and MCP support, powered by DeepSeek",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "example:calculator": "tsx examples/01-calculator.ts",
+    "example:weather": "tsx examples/02-weather-streaming.ts",
+    "example:mcp": "tsx examples/03-mcp-filesystem.ts",
+    "clean": "rm -rf dist"
+  },
+  "keywords": ["agent", "ai", "llm", "deepseek", "mcp", "tool-calling"],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.3",
+    "openai": "^6.16.0",
+    "uuid": "^13.0.0",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.9",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

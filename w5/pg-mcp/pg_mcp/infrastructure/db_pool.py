@@ -29,6 +29,7 @@ class PostgreSQLPool:
         self.pool = pool
         self.config = config
 
+    @asynccontextmanager
     async def acquire(self, timeout: float | None = None) -> AsyncIterator[PgConnection]:
         """获取连接"""
         async with self.pool.acquire(timeout=timeout) as conn:
@@ -46,6 +47,7 @@ class MySQLPoolWrapper:
         self.pool = pool
         self.config = config
 
+    @asynccontextmanager
     async def acquire(self, timeout: float | None = None) -> AsyncIterator[MySQLConnection]:
         """获取连接"""
         conn = await self.pool.acquire()
@@ -197,21 +199,26 @@ class DBPoolManager:
             async with pool.acquire(timeout=timeout) as conn:
                 # MySQL 设置只读模式和超时（必须在事务开始前设置）
                 try:
-                    # 先设置会话级别的只读和超时
-                    await conn.execute("SET SESSION TRANSACTION READ ONLY")
-                    # MySQL 5.7.8+ 支持 max_execution_time
+                    # 使用游标执行设置语句
+                    cursor = await conn.cursor()
                     try:
-                        await conn.execute(f"SET SESSION max_execution_time = {timeout * 1000}")
-                    except Exception:
-                        # 如果版本不支持，忽略超时设置
-                        pass
-                    # 可选降权角色（MySQL 8.0+ 支持 SET ROLE）
-                    if config.role:
+                        # 先设置会话级别的只读和超时
+                        await cursor.execute("SET SESSION TRANSACTION READ ONLY")
+                        # MySQL 5.7.8+ 支持 max_execution_time
                         try:
-                            await conn.execute(f"SET ROLE {config.role}")
+                            await cursor.execute(f"SET SESSION max_execution_time = {timeout * 1000}")
                         except Exception:
-                            # 如果版本不支持 SET ROLE，忽略
+                            # 如果版本不支持，忽略超时设置
                             pass
+                        # 可选降权角色（MySQL 8.0+ 支持 SET ROLE）
+                        if config.role:
+                            try:
+                                await cursor.execute(f"SET ROLE {config.role}")
+                            except Exception:
+                                # 如果版本不支持 SET ROLE，忽略
+                                pass
+                    finally:
+                        await cursor.close()
                     # 开始只读事务
                     await conn.begin()
                     adapter = create_adapter(conn, "mysql")

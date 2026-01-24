@@ -1,0 +1,9 @@
+node_modules
+
+# Vendor directories
+venders/
+mycode/js/opencode-introspection/vendors/
+opencode.json
+logs
+node_modules
+.venv/

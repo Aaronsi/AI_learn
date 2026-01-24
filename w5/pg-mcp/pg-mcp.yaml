@@ -32,6 +32,30 @@ databases:
     min_pool_size: 1
     max_pool_size: 5
 
+  - name: "chapter1"
+    db_type: "mysql"
+    host: "localhost"
+    port: 3306
+    database: "chapter1"
+    username: "root"
+    password: "root@123"
+    schemas:
+      - "chapter1"
+    min_pool_size: 1
+    max_pool_size: 5
+
+  - name: "sql_homework"
+    db_type: "mysql"
+    host: "localhost"
+    port: 3306
+    database: "sql_homework"
+    username: "root"
+    password: "root@123"
+    schemas:
+      - "sql_homework"
+    min_pool_size: 1
+    max_pool_size: 5
+
 llm:
   api_key: "sk-72a4e95a47b7433fab9abacddc36ae43"
   base_url: "https://api.deepseek.com"
