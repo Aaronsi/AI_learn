@@ -1,12 +1,29 @@
 {
   "name": "codereview-agent",
   "version": "1.0.0",
-  "description": "code review agent",
-  "license": "ISC",
-  "author": "",
-  "type": "commonjs",
-  "main": "index.js",
+  "description": "AI-powered code review agent based on simple-agent framework",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "codereview-agent": "./dist/cli.js"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "cli": "tsx src/cli.ts",
+    "example": "tsx examples/review-branch.ts",
+    "clean": "rm -rf dist"
+  },
+  "keywords": ["code-review", "ai", "agent", "llm"],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "simple-agent": "file:../simple-agent"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.9",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   }
 }
