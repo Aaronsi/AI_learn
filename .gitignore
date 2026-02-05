@@ -7,3 +7,4 @@ opencode.json
 logs
 node_modules
 .venv/
+w7/gen-slide/backend/static/slides/images/

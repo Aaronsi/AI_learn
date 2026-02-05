@@ -1,0 +1,19 @@
+slug: demo
+title: demo
+slides:
+- sid: f8cff58a-a0b1-4a00-99d5-4cfa28a778bc
+  content: gen slide 介绍
+  created_at: 2026-02-01 23:35:52.882154
+  updated_at: 2026-02-02 22:01:45.072285
+- sid: b2f13662-c6d2-4996-a217-7a9b42eaacc4
+  content: hello kitty 大战大黄蜂
+  created_at: 2026-02-02 20:57:25.210229
+  updated_at: 2026-02-02 22:32:19.480319
+- sid: 7f356976-5c41-4efe-a703-17ca4727b6c3
+  content: hello kitty 最终获得了胜利
+  created_at: 2026-02-03 10:08:34.616053
+  updated_at: 2026-02-03 10:10:03.735135
+total_cost: 0.17000000000000004
+style:
+  prompt: 科技感
+  image: style.jpg
